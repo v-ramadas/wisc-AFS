@@ -1,0 +1,51 @@
+// Copyright 2015 gRPC authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+option objc_class_prefix = "AFS";
+
+package wiscAFS;
+
+// The greeting service definition.
+service AFSController {
+  // Sends a greeting
+  rpc OpenFile (RPCRequest) returns (RCPResponse) {}
+  rpc CloseFile (RPCRequest) returns (RCPResponse) {}
+  rpc CreateFile (RPCRequest) returns (RCPResponse) {}
+  rpc DeleteFile (RPCRequest) returns (RCPResponse) {}
+  rpc CreateDir (RPCRequest) returns (RCPResponse) {}
+  rpc RemoveDir (RPCRequest) returns (RCPResponse) {}
+  rpc GetAttr (RPCRequest) returns (RCPResponse) {}
+
+}
+
+// The request message containing the user's name.
+message RPCRequest {
+  string filename = 1;
+  string path = 1;
+  int32 mode = 2;
+  int32 flags = 3;
+}
+
+message RPCAttr {
+    int32 filesize = 1;
+}
+
+message RCPResponse {
+  int32 status = 1;
+  string data = 2;
+  message RPCAttr = 3;
+
+}
