@@ -21,11 +21,15 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <cstdio>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include "wiscAFS.grpc.pb.h"
-
+#include <sys/types.h>
+#include <sys/stat.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -41,27 +45,153 @@ using wiscAFS::RPCAttr;
 class wiscAFSImpl final : public AFSController::Service {
  Status OpenFile(ServerContext* context, const RPCRequest* request,
                  RPCResponse* reply) override {
-              
-   std::ifstream file(request->path() + request->filename());
-   RPCAttr rpcAttr;
-   std::cerr << request->path() + request->filename() ; 
-   if (file.is_open()) {
+    
+   // Error handle the path and filename
+   string path = request->path();
+   string filename = request->filename()
+   string mode = request->mode()
+   int fileDescriptor = open(path + filename, mode);
+   RPCAttr * rpcAttr =  reply.mutable_inner();
+   if (fileDescriptor != -1) {
     //Call get Attribute 
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string contents = buffer.str();
-    reply->set_status(0);
     reply->set_data(contents);
-    rpcAttr.set_filesize(contents.length());
-//    reply->set_allocated_rpcattr(&rpcAttr);
+    struct stat file_info;
+    if (fstat(file_descriptor, &file_info) == -1) {
+      reply->set_status(-1);
+      return Status::OK;
+    }
+    //Add attributes from stat
+    rpcAttr->set_filesize(contents.length());
+    //reply->set_allocated_rpcattr(&rpcAttr);
+    close(fileDescriptor)
+    reply->set_status(1);
+
    }
    else{
-    reply->set_status(1);
+    reply->set_status(-1);
    }
-   file.close();
+   
    return Status::OK;
  }
+
+ Status CloseFile(ServerContext* context, const RPCRequest* request,
+                 RPCResponse* reply) override {
+    string path = request->path();
+    string new_content = request->data();
+    string fileName = request->data();
+    // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
+    int fileDescriptor = open(path + filename, mode);
+    if (fileDescriptor != -1) {
+      //TEMP FILE
+      ssize_t writeResult = write(fileDescriptor, new_content.c_str(), newContent.size());
+      if (writeResult == -1) {
+        reply->set_status(-1);
+        close(fileDescriptor);
+        return Status::OK;
+      }
+      int closeResult = close(fileDescriptor);
+      if(closeResult == -1){
+        reply->set_status(-1);
+        return Status::OK;
+      }
+      reply->set_status(1);
+    }
+    else{
+      reply->set_status(-1);
+    }
+    return Status::OK;
+  }
+    /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
+  Status CreateFile(ServerContext* context, const RPCRequest* request,
+                 RPCResponse* reply) override {
+      string path = request->path();
+      string new_content = request->data();
+      string fileName = request->data();
+      string flag = request->data();
+      int fileDescriptor = open(path + filename, mode, flag);
+      if (fileDescriptor != -1) {
+        reply->set_status(-1);
+        return Status::OK;
+      }
+
+      reply->set_status(1);
+      return Status::OK;
+  }
+
+  //Handle cache
+
+  Status DeleteFile(ServerContext* context, const RPCRequest* request,
+      RPCResponse* reply) override {
+    string path = request->path();
+    string fileName = request->data();
+    int unlinkResult = unlink(path + fileName);
+    if (unlinkResult != -1) {
+        reply->set_status(-1);
+        return Status::OK;
+    }  
+    reply->set_status(1);
+    return Status::OK;
+  }
+
+  Status DeleteDir(ServerContext* context, const RPCRequest* request,
+      RPCResponse* reply) override {
+      string path = request->path();
+      string dirName = request->data();
+      int result = rmdir(path + dirName);
+      if (result == -1) {
+        reply->set_status(-1);
+        return Status::OK;
+      }
+      reply->set_status(1);
+      return Status::OK;
+
+  }
+
+Status CreateDir(ServerContext* context, const RPCRequest* request,
+      RPCResponse* reply) override {
+      string path = request->path();
+      string dirName = request->data();
+      int result = mkdir(path + dirName);
+      if (result == -1) {
+        reply->set_status(-1);
+        return Status::OK;
+      }
+      reply->set_status(1);
+      return Status::OK;
+      }
+    
+  
+
+Status GetAttr(ServerContext* context, const RPCRequest* request,
+      RPCResponse* reply) override {
+    string path = request->path();
+    string filename = request->data();
+    RPCAttr * rpcAttr =  reply.mutable_inner();
+    int file_descriptor = open(path + filename, O_RDONLY);
+    if (file_descriptor == -1) {
+      //The file could not be opened
+      reply->set_status(-1);
+      return Status::OK;
+    }
+
+    struct stat file_info;
+    if (fstat(file_descriptor, &file_info) == -1) {
+      //The file information could not be retrieved.
+      reply->set_status(-1);
+      return Status::OK;
+    }
+    rpcAttr->set_filesize(file_info.st_size);
+    close(file_descriptor);
+    reply->set_status(1);
+    return Status::OK;
+  }
+
 };
+
+
 
 void RunServer() {
  std::string server_address("10.10.1.2:50051");
