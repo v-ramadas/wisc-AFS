@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
   wiscAFSClient afsClient (
       grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
   std::string filename("a.txt");
-  std::string path("/");
+  std::string path("/users/vramadas/grpc/examples/cpp/wiscAFS/cmake/build/");
   int flags = O_RDONLY;
   RPCResponse reply = afsClient.OpenFile(filename, path, flags);
   std::cout << "Data recieved : " << reply.data() << std::endl;
