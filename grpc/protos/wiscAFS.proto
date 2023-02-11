@@ -21,13 +21,13 @@ package wiscAFS;
 // The greeting service definition.
 service AFSController {
   // Sends a greeting
-  rpc OpenFile (RPCRequest) returns (RCPResponse) {}
-  rpc CloseFile (RPCRequest) returns (RCPResponse) {}
-  rpc CreateFile (RPCRequest) returns (RCPResponse) {}
-  rpc DeleteFile (RPCRequest) returns (RCPResponse) {}
-  rpc CreateDir (RPCRequest) returns (RCPResponse) {}
-  rpc RemoveDir (RPCRequest) returns (RCPResponse) {}
-  rpc GetAttr (RPCRequest) returns (RCPResponse) {}
+  rpc OpenFile (RPCRequest) returns (RPCResponse) {}
+  rpc CloseFile (RPCRequest) returns (RPCResponse) {}
+  rpc CreateFile (RPCRequest) returns (RPCResponse) {}
+  rpc DeleteFile (RPCRequest) returns (RPCResponse) {}
+  rpc CreateDir (RPCRequest) returns (RPCResponse) {}
+  rpc RemoveDir (RPCRequest) returns (RPCResponse) {}
+  rpc GetAttr (RPCRequest) returns (RPCResponse) {}
 
 }
 
@@ -43,9 +43,9 @@ message RPCAttr {
     int32 filesize = 1;
 }
 
-message RCPResponse {
+message RPCResponse {
   int32 status = 1;
   string data = 2;
-  RPCAttr rpcAttr = 3;
+  optional RPCAttr rpcAttr = 3;
 
 }

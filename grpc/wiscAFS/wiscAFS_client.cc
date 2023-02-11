@@ -19,8 +19,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <fnctl>
-#include <unistd>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <grpcpp/grpcpp.h>
 
@@ -34,13 +34,9 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using wiscAFS::AFSController;
-using wiscAFS::OpenFile;
-using wiscAFS::CloseFile;
-using wiscAFS::CreateFile;
-using wiscAFS::DeleteFile;
-using wiscAFS::RemoveDir;
-using wiscAFS::CreateDir;
-using wiscAFS::GetAttr;
+using wiscAFS::RPCResponse;
+using wiscAFS::RPCRequest;
+using wiscAFS::RPCAttr;
 
 class wiscAFSClient {
  public:
@@ -49,14 +45,14 @@ class wiscAFSClient {
 
   // Assembles the client's payload, sends it and presents the response back
   // from the server.
-  std::string OpenFile(const std::string& filename, const std::string& path, const int flags) {
+  RPCResponse OpenFile(const std::string& filename, const std::string& path, const int flags) {
     // Data we are sending to the server.
-    RPCrequest request;
+    RPCRequest request;
     request.set_filename(filename);
     request.set_path(path);
 
     // Container for the data we expect from the server.
-    RPCRespone reply;
+    RPCResponse reply;
 
     // Context for the client. It could be used to convey extra information to
     // the server and/or tweak certain RPC behaviors.
@@ -71,7 +67,8 @@ class wiscAFSClient {
     } else {
       std::cout << status.error_code() << ": " << status.error_message()
                 << std::endl;
-      return "RPC failed";
+      //TODO : Return error instead
+      return reply;
     }
   }
 
@@ -105,14 +102,14 @@ int main(int argc, char** argv) {
       return 0;
     }
   } else {
-    target_str = "localhost:50051";
+    target_str = "10.10.1.2:50051";
   }
   wiscAFSClient afsClient (
       grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
   std::string filename("a.txt");
   std::string path("/");
-  int flag = O_RDONLY;
-  RPCRespone reply = afsClient.OpenFile(filename, path, flags);
+  int flags = O_RDONLY;
+  RPCResponse reply = afsClient.OpenFile(filename, path, flags);
   std::cout << "Data recieved : " << reply.data() << std::endl;
 
   return 0;

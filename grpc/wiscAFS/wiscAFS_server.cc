@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <fstream>
+#include <sstream>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
@@ -32,17 +33,17 @@ using grpc::ServerContext;
 using grpc::Status;
 using wiscAFS::AFSController;
 using wiscAFS::RPCRequest;
-using wiscAFS::RCPResponse;
+using wiscAFS::RPCResponse;
 using wiscAFS::RPCAttr;
 
 
 // Logic and data behind the server's behavior.
 class wiscAFSImpl final : public AFSController::Service {
  Status OpenFile(ServerContext* context, const RPCRequest* request,
-                 RCPResponse* reply) override {
+                 RPCResponse* reply) override {
               
-   std::ifstream file(request->pathName + request->filename);
-   RPCAttr rcp_Attr = new RPCAttr();
+   std::ifstream file(request->path() + request->filename());
+   RPCAttr rpcAttr;
    if (file.is_open()) {
     //Call get Attribute 
     std::stringstream buffer;
@@ -50,19 +51,20 @@ class wiscAFSImpl final : public AFSController::Service {
     std::string contents = buffer.str();
     reply->set_status(0);
     reply->set_data(contents);
-    rcpAttr->set_filesize(contents.length());
-    reply->set_rpcAttr(rcp_Attr)
+    rpcAttr.set_filesize(contents.length());
+    reply->set_allocated_rpcattr(&rpcAttr);
    }
    else{
     reply->set_status(1);
    }
+   file.close();
    return Status::OK;
  }
 };
 
 void RunServer() {
  std::string server_address("10.10.1.2:50051");
- GreeterServiceImpl service;
+ wiscAFSImpl service;
 
  grpc::EnableDefaultHealthCheckService(true);
  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
