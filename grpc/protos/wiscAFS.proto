@@ -28,6 +28,8 @@ service AFSController {
   rpc CreateDir (RPCRequest) returns (RPCResponse) {}
   rpc RemoveDir (RPCRequest) returns (RPCResponse) {}
   rpc GetAttr (RPCRequest) returns (RPCResponse) {}
+  rpc OpenDir (RPCRequest) returns (RPCResponse) {}
+  rpc ReadDir (RPCRequest) returns (RPCResponse) {}
 
 }
 
@@ -41,6 +43,8 @@ message RPCRequest {
 
 message RPCAttr {
     int32 filesize = 1;
+    int64 atime = 2;
+    int64 mtime = 3;
 }
 
 message RPCResponse {
