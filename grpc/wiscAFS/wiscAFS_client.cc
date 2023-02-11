@@ -19,6 +19,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <fnctl>
+#include <unistd>
 
 #include <grpcpp/grpcpp.h>
 
@@ -32,18 +34,46 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using wiscAFS::AFSController;
-//using wiscAFS::OpenFile;
-//using wiscAFS::CloseFile;
-//using wiscAFS::CreateFile;
-//using wiscAFS::DeleteFile;
-//using wiscAFS::RemoveDir;
-//using wiscAFS::CreateDir;
-//using wiscAFS::GetAttr;
+using wiscAFS::OpenFile;
+using wiscAFS::CloseFile;
+using wiscAFS::CreateFile;
+using wiscAFS::DeleteFile;
+using wiscAFS::RemoveDir;
+using wiscAFS::CreateDir;
+using wiscAFS::GetAttr;
 
 class wiscAFSClient {
  public:
   wiscAFSClient(std::shared_ptr<Channel> channel)
       : stub_(AFSController::NewStub(channel)) {}
+
+  // Assembles the client's payload, sends it and presents the response back
+  // from the server.
+  std::string OpenFile(const std::string& filename, const std::string& path, const int flags) {
+    // Data we are sending to the server.
+    RPCrequest request;
+    request.set_filename(filename);
+    request.set_path(path);
+
+    // Container for the data we expect from the server.
+    RPCRespone reply;
+
+    // Context for the client. It could be used to convey extra information to
+    // the server and/or tweak certain RPC behaviors.
+    ClientContext context;
+
+    // The actual RPC.
+    Status status = stub_->OpenFile(&context, request, &reply);
+
+    // Act upon its status.
+    if (status.ok()) {
+      return reply;
+    } else {
+      std::cout << status.error_code() << ": " << status.error_message()
+                << std::endl;
+      return "RPC failed";
+    }
+  }
 
  private:
   std::unique_ptr<AFSController::Stub> stub_;
@@ -56,32 +86,34 @@ int main(int argc, char** argv) {
   // We indicate that the channel isn't authenticated (use of
   // InsecureChannelCredentials()).
 
-//  std::string target_str;
-//  std::string arg_str("--target");
-//  if (argc > 1) {
-//    std::string arg_val = argv[1];
-//    size_t start_pos = arg_val.find(arg_str);
-//    if (start_pos != std::string::npos) {
-//      start_pos += arg_str.size();
-//      if (arg_val[start_pos] == '=') {
-//        target_str = arg_val.substr(start_pos + 1);
-//      } else {
-//        std::cout << "The only correct argument syntax is --target="
-//                  << std::endl;
-//        return 0;
-//      }
-//    } else {
-//      std::cout << "The only acceptable argument is --target=" << std::endl;
-//      return 0;
-//    }
-//  } else {
-//    target_str = "10.10.1.2:50051";
-//  }
-//  GreeterClient greeter(
-//      grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-//  std::string user("world");
-//  std::string reply = greeter.SayHello(user);
-//  std::cout << "Greeter received: " << reply << std::endl;
+  std::string target_str;
+  std::string arg_str("--target");
+  if (argc > 1) {
+    std::string arg_val = argv[1];
+    size_t start_pos = arg_val.find(arg_str);
+    if (start_pos != std::string::npos) {
+      start_pos += arg_str.size();
+      if (arg_val[start_pos] == '=') {
+        target_str = arg_val.substr(start_pos + 1);
+      } else {
+        std::cout << "The only correct argument syntax is --target="
+                  << std::endl;
+        return 0;
+      }
+    } else {
+      std::cout << "The only acceptable argument is --target=" << std::endl;
+      return 0;
+    }
+  } else {
+    target_str = "localhost:50051";
+  }
+  wiscAFSClient afsClient (
+      grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
+  std::string filename("a.txt");
+  std::string path("/");
+  int flag = O_RDONLY;
+  RPCRespone reply = afsClient.OpenFile(filename, path, flags);
+  std::cout << "Data recieved : " << reply.data() << std::endl;
 
   return 0;
 }
