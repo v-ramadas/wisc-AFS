@@ -44,6 +44,7 @@ class wiscAFSImpl final : public AFSController::Service {
               
    std::ifstream file(request->path() + request->filename());
    RPCAttr rpcAttr;
+   std::cerr << request->path() + request->filename() ; 
    if (file.is_open()) {
     //Call get Attribute 
     std::stringstream buffer;
@@ -52,7 +53,7 @@ class wiscAFSImpl final : public AFSController::Service {
     reply->set_status(0);
     reply->set_data(contents);
     rpcAttr.set_filesize(contents.length());
-    reply->set_allocated_rpcattr(&rpcAttr);
+//    reply->set_allocated_rpcattr(&rpcAttr);
    }
    else{
     reply->set_status(1);
@@ -84,7 +85,7 @@ void RunServer() {
 }
 
 int main(int argc, char** argv) {
-//  RunServer();
+  RunServer();
 
   return 0;
 }
