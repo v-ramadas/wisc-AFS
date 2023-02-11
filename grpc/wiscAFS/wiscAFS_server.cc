@@ -19,31 +19,45 @@
 #include <iostream>
 #include <memory>
 #include <string>
-
+#include <fstream>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
-
-#ifdef BAZEL_BUILD
-#include "examples/protos/wiscAFS.grpc.pb.h"
-#else
 #include "wiscAFS.grpc.pb.h"
-#endif
+
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 using wiscAFS::AFSController;
+using wiscAFS::RPCRequest;
+using wiscAFS::RCPResponse;
+using wiscAFS::RPCAttr;
+
 
 // Logic and data behind the server's behavior.
 class wiscAFSImpl final : public AFSController::Service {
-//  Status SayHello(ServerContext* context, const HelloRequest* request,
-//                  HelloReply* reply) override {
-//    std::string prefix("Hello ");
-//    reply->set_message(prefix + request->name());
-//    return Status::OK;
-//  }
+ Status OpenFile(ServerContext* context, const RPCRequest* request,
+                 RCPResponse* reply) override {
+              
+   std::ifstream file(request->pathName + request->filename);
+   RPCAttr rcp_Attr = new RPCAttr();
+   if (file.is_open()) {
+    //Call get Attribute 
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string contents = buffer.str();
+    reply->set_status(0);
+    reply->set_data(contents);
+    rcpAttr->set_filesize(contents.length());
+    reply->set_rpcAttr(rcp_Attr)
+   }
+   else{
+    reply->set_status(1);
+   }
+   return Status::OK;
+ }
 };
 
 //void RunServer() {
