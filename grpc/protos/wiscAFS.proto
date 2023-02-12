@@ -39,6 +39,7 @@ message RPCRequest {
   string path = 2;
   int32 mode = 3;
   int32 flags = 4;
+  string data = 5;
 }
 
 message RPCAttr {

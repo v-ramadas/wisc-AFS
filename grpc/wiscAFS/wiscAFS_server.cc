@@ -23,13 +23,13 @@
 #include <sstream>
 #include <cstdio>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include "wiscAFS.grpc.pb.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -43,30 +43,34 @@ using wiscAFS::RPCAttr;
 
 // Logic and data behind the server's behavior.
 class wiscAFSImpl final : public AFSController::Service {
+
  Status OpenFile(ServerContext* context, const RPCRequest* request,
                  RPCResponse* reply) override {
     
    // Error handle the path and filename
-   string path = request->path();
-   string filename = request->filename()
-   string mode = request->mode()
-   int fileDescriptor = open(path + filename, mode);
-   RPCAttr * rpcAttr =  reply.mutable_inner();
-   if (fileDescriptor != -1) {
+   std::string path = request->path();
+   std::string filename = request->filename();
+   int mode = request->mode();
+   //int fileDescriptor = open((path + filename).c_str(), mode);
+   std::ifstream f(path+filename);
+   int fd = open((path+filename).c_str(), mode);
+   RPCAttr *rpcAttr; 
+   if (fd != -1) {
     //Call get Attribute 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string contents = buffer.str();
-    reply->set_data(contents);
     struct stat file_info;
-    if (fstat(file_descriptor, &file_info) == -1) {
+    if (fstat(fd, &file_info) == -1) {
       reply->set_status(-1);
       return Status::OK;
     }
+    int sz = lseek(fd, 0L, SEEK_END);
+    lseek(fd, 0L, SEEK_SET);
+    char *buffer = new char[sz];
+    std::string obuffer = buffer;
+    reply->set_data(obuffer);
     //Add attributes from stat
-    rpcAttr->set_filesize(contents.length());
-    //reply->set_allocated_rpcattr(&rpcAttr);
-    close(fileDescriptor)
+    rpcAttr->set_filesize(sz);
+    reply->set_allocated_rpcattr(rpcAttr);
+    close(fd);
     reply->set_status(1);
 
    }
@@ -79,14 +83,14 @@ class wiscAFSImpl final : public AFSController::Service {
 
  Status CloseFile(ServerContext* context, const RPCRequest* request,
                  RPCResponse* reply) override {
-    string path = request->path();
-    string new_content = request->data();
-    string fileName = request->data();
+    std::string path = request->path();
+    std::string newContent = request->data();
+    std::string fileName = request->data();
     // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
-    int fileDescriptor = open(path + filename, mode);
+    int fileDescriptor = open((path + fileName).c_str(), O_RDWR);
     if (fileDescriptor != -1) {
       //TEMP FILE
-      ssize_t writeResult = write(fileDescriptor, new_content.c_str(), newContent.size());
+      ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
       if (writeResult == -1) {
         reply->set_status(-1);
         close(fileDescriptor);
@@ -107,11 +111,11 @@ class wiscAFSImpl final : public AFSController::Service {
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
   Status CreateFile(ServerContext* context, const RPCRequest* request,
                  RPCResponse* reply) override {
-      string path = request->path();
-      string new_content = request->data();
-      string fileName = request->data();
-      string flag = request->data();
-      int fileDescriptor = open(path + filename, mode, flag);
+      std::string path = request->path();
+      std::string new_content = request->data();
+      std::string fileName = request->data();
+      std::string flag = request->data();
+      int fileDescriptor = open((path + fileName).c_str(), O_CREAT, flag);
       if (fileDescriptor != -1) {
         reply->set_status(-1);
         return Status::OK;
@@ -125,9 +129,9 @@ class wiscAFSImpl final : public AFSController::Service {
 
   Status DeleteFile(ServerContext* context, const RPCRequest* request,
       RPCResponse* reply) override {
-    string path = request->path();
-    string fileName = request->data();
-    int unlinkResult = unlink(path + fileName);
+    std::string path = request->path();
+    std::string fileName = request->data();
+    int unlinkResult = unlink((path + fileName).c_str());
     if (unlinkResult != -1) {
         reply->set_status(-1);
         return Status::OK;
@@ -136,11 +140,11 @@ class wiscAFSImpl final : public AFSController::Service {
     return Status::OK;
   }
 
-  Status DeleteDir(ServerContext* context, const RPCRequest* request,
+  Status RemoveDir(ServerContext* context, const RPCRequest* request,
       RPCResponse* reply) override {
-      string path = request->path();
-      string dirName = request->data();
-      int result = rmdir(path + dirName);
+      std::string path = request->path();
+      std::string dirName = request->data();
+      int result = rmdir((path + dirName).c_str());
       if (result == -1) {
         reply->set_status(-1);
         return Status::OK;
@@ -152,9 +156,10 @@ class wiscAFSImpl final : public AFSController::Service {
 
 Status CreateDir(ServerContext* context, const RPCRequest* request,
       RPCResponse* reply) override {
-      string path = request->path();
-      string dirName = request->data();
-      int result = mkdir(path + dirName);
+      std::string path = request->path();
+      std::string dirName = request->data();
+      int mode = request->mode();
+      int result = mkdir((path + dirName).c_str(), mode);
       if (result == -1) {
         reply->set_status(-1);
         return Status::OK;
@@ -167,10 +172,10 @@ Status CreateDir(ServerContext* context, const RPCRequest* request,
 
 Status GetAttr(ServerContext* context, const RPCRequest* request,
       RPCResponse* reply) override {
-    string path = request->path();
-    string filename = request->data();
-    RPCAttr * rpcAttr =  reply.mutable_inner();
-    int file_descriptor = open(path + filename, O_RDONLY);
+    std::string path = request->path();
+    std::string filename = request->data();
+    RPCAttr * rpcAttr;// =  reply->mutable_data();
+    int file_descriptor = open((path + filename).c_str(), O_RDONLY);
     if (file_descriptor == -1) {
       //The file could not be opened
       reply->set_status(-1);
