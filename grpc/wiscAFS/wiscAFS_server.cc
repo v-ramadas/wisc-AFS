@@ -55,22 +55,29 @@ class wiscAFSImpl final : public AFSController::Service {
    std::ifstream f(path+filename);
    int fd = open((path+filename).c_str(), mode);
    RPCAttr *rpcAttr; 
+   std::cerr << "here1 \n";
    if (fd != -1) {
     //Call get Attribute 
     struct stat file_info;
+    std::cerr << "here1 \n";
     if (fstat(fd, &file_info) == -1) {
       reply->set_status(-1);
       return Status::OK;
     }
+    std::cerr << "here2 \n";
     int sz = lseek(fd, 0L, SEEK_END);
     lseek(fd, 0L, SEEK_SET);
     char *buffer = new char[sz];
+    std::cerr << "here3 \n";
+    int err = read(fd, buffer, sz);
     std::string obuffer = buffer;
     reply->set_data(obuffer);
+    std::cerr << "here4 \n";
     //Add attributes from stat
-    rpcAttr->set_filesize(sz);
-    reply->set_allocated_rpcattr(rpcAttr);
+    //rpcAttr->set_filesize(sz);
+    //reply->set_allocated_rpcattr(rpcAttr);
     close(fd);
+    std::cerr << "here5 \n";
     reply->set_status(1);
 
    }
