@@ -18,73 +18,73 @@
 
 #include "wiscAFS_client.hh"
 int main(int argc, char** argv) {
-  // Instantiate the client. It requires a channel, out of which the actual RPCs
-  // are created. This channel models a connection to an endpoint specified by
-  // the argument "--target=" which is the only expected argument.
-  // We indicate that the channel isn't authenticated (use of
-  // InsecureChannelCredentials()).
+    // Instantiate the client. It requires a channel, out of which the actual RPCs
+    // are created. This channel models a connection to an endpoint specified by
+    // the argument "--target=" which is the only expected argument.
+    // We indicate that the channel isn't authenticated (use of
+    // InsecureChannelCredentials()).
 
-  std::string target_str;
-  std::string arg_str("--target");
-  if (argc > 1) {
-    std::string arg_val = argv[1];
-    size_t start_pos = arg_val.find(arg_str);
-    if (start_pos != std::string::npos) {
-      start_pos += arg_str.size();
-      if (arg_val[start_pos] == '=') {
-        target_str = arg_val.substr(start_pos + 1);
-      } else {
-        std::cout << "The only correct argument syntax is --target="
-                  << std::endl;
-        return 0;
-      }
+    std::string target_str;
+    std::string arg_str("--target");
+    if (argc > 1) {
+        std::string arg_val = argv[1];
+        size_t start_pos = arg_val.find(arg_str);
+        if (start_pos != std::string::npos) {
+            start_pos += arg_str.size();
+            if (arg_val[start_pos] == '=') {
+                target_str = arg_val.substr(start_pos + 1);
+            } else {
+                std::cout << "The only correct argument syntax is --target="
+                    << std::endl;
+                return 0;
+            }
+        } else {
+            std::cout << "The only acceptable argument is --target=" << std::endl;
+            return 0;
+        }
     } else {
-      std::cout << "The only acceptable argument is --target=" << std::endl;
-      return 0;
+        target_str = "10.10.1.2:50051";
     }
-  } else {
-    target_str = "10.10.1.2:50051";
-  }
-  wiscAFSClient afsClient (
-      grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-  std::string filename("a.txt");
-  std::string dirname("dir1");
-  std::string path("/users/vramadas/grpc/examples/cpp/wiscAFS/cmake/build/");
-  std::string data("asdafgdf\nssfdlkjgdgklfg\n");
-  int flags = O_RDONLY;
-  int mode = S_IRWXU;
-  int dirmode = 700;
-  std::cout << "Sending OpenFile\n" ;
-  RPCResponse reply = afsClient.OpenFile(filename, path, flags);
-  std::cout << "Data recieved : " << reply.data() << std::endl;
+    wiscAFSClient afsClient (
+            grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
+    std::string filename("a.txt");
+    std::string dirname("dir1");
+    std::string path("/users/vramadas/grpc/examples/cpp/wiscAFS/cmake/build/");
+    std::string data("asdafgdf\nssfdlkjgdgklfg\n");
+    int flags = O_RDONLY;
+    int mode = S_IRWXU;
+    int dirmode = 700;
+    std::cout << "Sending OpenFile\n" ;
+    RPCResponse reply = afsClient.OpenFile(filename, path, flags);
+    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
-  /*std::cout << "Sending CreateFile\n" ;
-  reply = afsClient.CreateFile(filename, path, mode);
-  std::cout << "Response recieved : " << reply.status() << std::endl;
+    /*std::cout << "Sending CreateFile\n" ;
+      reply = afsClient.CreateFile(filename, path, mode);
+      std::cout << "Response recieved : " << reply.status() << std::endl;
 
-  std::cout << "Sending GetAttr\n" ;
-  reply = afsClient.GetAttr(filename, path);
-  std::cout << "Data recieved : " << reply.rpcattr().filesize() << std::endl;
+      std::cout << "Sending GetAttr\n" ;
+      reply = afsClient.GetAttr(filename, path);
+      std::cout << "Data recieved : " << reply.rpcattr().filesize() << std::endl;
 
-  std::cout << "Sending CloseFile\n" ;
-  reply = afsClient.CloseFile(filename, path, data);
-  std::cout << "Response recieved : " << reply.status() << std::endl;
+      std::cout << "Sending CloseFile\n" ;
+      reply = afsClient.CloseFile(filename, path, data);
+      std::cout << "Response recieved : " << reply.status() << std::endl;
 
-  std::cout << "Sending DeleteFile\n" ;
-  reply = afsClient.DeleteFile(filename, path);
-  std::cout << "Response recieved : " << reply.status() << std::endl;
+      std::cout << "Sending DeleteFile\n" ;
+      reply = afsClient.DeleteFile(filename, path);
+      std::cout << "Response recieved : " << reply.status() << std::endl;
 
-  std::cout << "Sending CreateDir\n" ;
-  reply = afsClient.CreateDir(dirname, path, dirmode);
-  std::cout << "Response recieved : " << reply.status() << std::endl;
+      std::cout << "Sending CreateDir\n" ;
+      reply = afsClient.CreateDir(dirname, path, dirmode);
+      std::cout << "Response recieved : " << reply.status() << std::endl;
 
-  std::cout << "Sending OpenDir\n" ;
-  reply = afsClient.OpenDir(dirname, path, mode);
-  std::cout << "Response recieved : " << reply.status() << std::endl;
+      std::cout << "Sending OpenDir\n" ;
+      reply = afsClient.OpenDir(dirname, path, mode);
+      std::cout << "Response recieved : " << reply.status() << std::endl;
 
-  std::cout << "Sending RemoveDir\n" ;
-  reply = afsClient.RemoveDir(dirname, path);
-  std::cout << "Response recieved : " << reply.status() << std::endl;*/
+      std::cout << "Sending RemoveDir\n" ;
+      reply = afsClient.RemoveDir(dirname, path);
+      std::cout << "Response recieved : " << reply.status() << std::endl;*/
 
-  return 0;
+    return 0;
 }
