@@ -46,11 +46,14 @@ add_custom_command(
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 # wiscAFS_grpc_proto
-add_library(wiscAFS_grpc_proto
+add_library(wiscAFS_grpc_proto SHARED
 	${wiscAFS_grpc_srcs}
 	${wiscAFS_grpc_hdrs}
 	${wiscAFS_proto_srcs}
-	${wiscAFS_proto_hdrs})
+	${wiscAFS_proto_hdrs}
+    cache/ClientCache.h
+    wiscAFS_client.hh
+    wiscAFS_client.cc)
 target_link_libraries(wiscAFS_grpc_proto
   ${_REFLECTION}
   ${_GRPC_GRPCPP}
@@ -58,7 +61,7 @@ target_link_libraries(wiscAFS_grpc_proto
 
 # Targets greeter_[async_](client|server)
 foreach(_target
-		wiscAFS_client wiscAFS_server 
+		wiscAFS_client_standalone wiscAFS_server 
   )
   add_executable(${_target} "${_target}.cc")
   target_link_libraries(${_target}

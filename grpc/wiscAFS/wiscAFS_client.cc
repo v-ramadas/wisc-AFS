@@ -1,90 +1,205 @@
-/*
- *
- * Copyright 2015 gRPC authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 #include "wiscAFS_client.hh"
-int main(int argc, char** argv) {
-    // Instantiate the client. It requires a channel, out of which the actual RPCs
-    // are created. This channel models a connection to an endpoint specified by
-    // the argument "--target=" which is the only expected argument.
-    // We indicate that the channel isn't authenticated (use of
-    // InsecureChannelCredentials()).
+#include "cache/ClientCache.h"
 
-    std::string target_str;
-    std::string arg_str("--target");
-    if (argc > 1) {
-        std::string arg_val = argv[1];
-        size_t start_pos = arg_val.find(arg_str);
-        if (start_pos != std::string::npos) {
-            start_pos += arg_str.size();
-            if (arg_val[start_pos] == '=') {
-                target_str = arg_val.substr(start_pos + 1);
-            } else {
-                std::cout << "The only correct argument syntax is --target="
-                    << std::endl;
-                return 0;
-            }
-        } else {
-            std::cout << "The only acceptable argument is --target=" << std::endl;
+int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
+   ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+   if(ccv1 == nullptr){
+       // Data we are sending to the server. ##ASSUMING FILENAMES include path
+      
+       RPCRequest request;
+       request.set_filename(filename);
+
+       // Container for the data we expect from the server.
+       RPCResponse reply;
+
+       // Context for the client. It could be used to convey extra information to
+       // the server and/or tweak certain RPC behaviors.
+       ClientContext context;
+
+       // The actual RPC.
+       Status status = stub_->OpenFile(&context, request, &reply);
+       // Act upon its status.
+       if (status.ok()) {
+           std::string local_path = (client_path + std::to_string(reply.inode()) + ".tmp").c_str();
+           int fileDescriptor = open(local_path.c_str(),  O_WRONLY | O_CREAT | O_EXCL, 0644);
+           if (fileDescriptor != -1) {
+               ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
+               //SUCCESS
+               FileAttrs fileatts(reply.rpcattr().filesize(),reply.rpcattr().atime(),reply.rpcattr().mtime());
+               ClientCacheValue ccv(fileatts, reply.inode(), false, fileDescriptor);
+               diskCache.addCacheValue(filename, ccv);
+           }
+           return fileDescriptor;
+       } else {
+           return -status.error_code();
+       }
+   }
+   else{
+       //ALREADY IN CACHE
+       int fd = ccv1->fileDiscriptor;
+       return fd;
+   }
+}
+
+int wiscAFSClient::CloseFile(const std::string& filename) {
+    // Data we are sending to the server.
+    ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    if(ccv1 == nullptr){
+        errno=ENOENT;
+    }
+    else if(!ccv1->isDirty){
+        diskCache.deleteCacheValue(filename);
+        return 0;
+    }
+    else{
+        RPCRequest request;
+        request.set_filename(filename);
+        //request.set_data(data);
+        // Container for the data we expect from the server.
+        RPCResponse reply;
+
+        // Context for the client. It could be used to convey extra information to
+        // the server and/or tweak certain RPC behaviors.
+        ClientContext context;
+
+        // The actual RPC.
+        Status status = stub_->CloseFile(&context, request, &reply);
+
+        if (status.ok()) {
+            diskCache.deleteCacheValue(filename);
             return 0;
         }
-    } else {
-        target_str = "10.10.1.2:50051";
+        else{
+            return -status.error_code();
+        }
     }
-    wiscAFSClient afsClient (
-            grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-    std::string filename("a.txt");
-    std::string dirname("dir1");
-    std::string path("/users/vramadas/grpc/examples/cpp/wiscAFS/cmake/build/");
-    std::string data("asdafgdf\nssfdlkjgdgklfg\n");
-    int flags = O_RDONLY;
-    int mode = S_IRWXU;
-    int dirmode = 700;
-    std::cout << "Sending OpenFile\n" ;
-    int reply = afsClient.OpenFile(path, flags);
-//    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
+}
 
-    /*std::cout << "Sending CreateFile\n" ;
-      reply = afsClient.CreateFile(filename, path, mode);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+int wiscAFSClient::ReadFile(const std::string& filename) {
+    ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    if(ccv1 == nullptr){
+        errno=ENOENT;
+    }
+    else{
+        return ccv1->fileDiscriptor;
+    }
+}
 
-      std::cout << "Sending GetAttr\n" ;
-      reply = afsClient.GetAttr(filename, path);
-      std::cout << "Data recieved : " << reply.rpcattr().filesize() << std::endl;
+//Returning either fD or error
+int wiscAFSClient::WriteFile(const std::string& filename){
+    ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    if(ccv1 == nullptr){
+        errno=ENOENT;
+    }
+    else{
+        if(!ccv1->isDirty){
+            ccv1->isDirty = true;
+            diskCache.updateCacheValue(filename, *ccv1);
+        }
+        return ccv1->fileDiscriptor;
+    }
+}
 
-      std::cout << "Sending CloseFile\n" ;
-      reply = afsClient.CloseFile(filename, path, data);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+RPCResponse wiscAFSClient::DeleteFile(const std::string& filename, const std::string& path) {
+   RPCRequest request;
+   request.set_filename(filename);
+   // Container for the data we expect from the server.
+   RPCResponse reply;
 
-      std::cout << "Sending DeleteFile\n" ;
-      reply = afsClient.DeleteFile(filename, path);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+   // Context for the client. It could be used to convey extra information to
+   // the server and/or tweak certain RPC behaviors.
+   ClientContext context;
 
-      std::cout << "Sending CreateDir\n" ;
-      reply = afsClient.CreateDir(dirname, path, dirmode);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+   // The actual RPC.
+   Status status = stub_->DeleteFile(&context, request, &reply);
 
-      std::cout << "Sending OpenDir\n" ;
-      reply = afsClient.OpenDir(dirname, path, mode);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+   ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+   if(ccv1 == nullptr){
+       errno=ENOENT;
+   }
+   else if (status.ok()) {
+       diskCache.deleteCacheValue(filename);
+   }
+   return reply;
 
-      std::cout << "Sending RemoveDir\n" ;
-      reply = afsClient.RemoveDir(dirname, path);
-      std::cout << "Response recieved : " << reply.status() << std::endl;*/
+}
 
-    return 0;
+RPCResponse wiscAFSClient::CreateDir(const std::string& dirname, const std::string& path, const int mode) {
+   // Data we are sending to the server.
+   RPCRequest request;
+   request.set_filename(dirname);
+   request.set_path(path);
+   request.set_mode(mode);
+
+   // Container for the data we expect from the server.
+   RPCResponse reply;
+
+   // Context for the client. It could be used to convey extra information to
+   // the server and/or tweak certain RPC behaviors.
+   ClientContext context;
+
+   // The actual RPC.
+   Status status = stub_->CreateFile(&context, request, &reply);
+
+   // Act upon its status.
+   if (status.ok()) {
+       return reply;
+   } else {
+       std::cout << status.error_code() << ": " << status.error_message()
+           << std::endl;
+       reply.set_status(-1);
+       return reply;
+   }
+}
+
+RPCResponse wiscAFSClient::RemoveDir (const std::string& dirname, const std::string& path) {
+    // Data we are sending to the server.
+    RPCRequest request;
+    request.set_filename(dirname);
+    request.set_path(path);
+
+    // Container for the data we expect from the server.
+    RPCResponse reply;
+
+    // Context for the client. It could be used to convey extra information to
+    // the server and/or tweak certain RPC behaviors.
+    ClientContext context;
+
+    // The actual RPC.
+    Status status = stub_->RemoveDir(&context, request, &reply);
+
+    // Act upon its status.
+    if (status.ok()) {
+        return reply;
+    } else {
+        std::cout << status.error_code() << ": " << status.error_message()
+            << std::endl;
+        reply.set_status(-1);
+        return reply;
+    }
+}
+
+RPCResponse wiscAFSClient::GetAttr(const std::string& filename) {
+   // Data we are sending to the server.
+   RPCRequest request;
+   request.set_filename(filename);
+
+   // Container for the data we expect from the server.
+   RPCResponse reply;
+
+   // Context for the client. It could be used to convey extra information to
+   // the server and/or tweak certain RPC behaviors.
+   ClientContext context;
+
+   // The actual RPC.
+   Status status = stub_->GetAttr(&context, request, &reply);
+
+   // Act upon its status.
+   if (status.ok()) {
+       return reply;
+   } else {
+       reply.set_status(-status.error_code());
+       return reply;
+   }
+ 
 }
