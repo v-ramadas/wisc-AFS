@@ -55,8 +55,8 @@ int main(int argc, char** argv) {
     int mode = S_IRWXU;
     int dirmode = 700;
     std::cout << "Sending OpenFile\n" ;
-    RPCResponse reply = afsClient.OpenFile(filename, path, flags);
-    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
+    int reply = afsClient.OpenFile(path, flags);
+//    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
     /*std::cout << "Sending CreateFile\n" ;
       reply = afsClient.CreateFile(filename, path, mode);
