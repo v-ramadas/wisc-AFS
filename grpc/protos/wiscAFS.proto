@@ -51,6 +51,7 @@ message RPCAttr {
 message RPCResponse {
   int32 status = 1;
   string data = 2;
-  optional RPCAttr rpcAttr = 3;
+  int32 inode = 3;
+  optional RPCAttr rpcAttr = 4;
 
 }

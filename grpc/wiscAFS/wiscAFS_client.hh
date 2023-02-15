@@ -6,6 +6,8 @@
 #include <string>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include "cache/ClientCache.h"
 
 #include <grpcpp/grpcpp.h>
 #include "wiscAFS.grpc.pb.h"
@@ -21,119 +23,147 @@ using wiscAFS::RPCRequest;
 using wiscAFS::RPCAttr;
 
 class wiscAFSClient {
+
+    DiskCache diskCache;
+    std::string client_path = '/temp/afs/';
     public:
         wiscAFSClient(std::shared_ptr<Channel> channel)
-            : stub_(AFSController::NewStub(channel)) {}
+            : stub_(AFSController::NewStub(channel)) {
+                diskCache.loadCache();
+            }
 
         // Assembles the client's payload, sends it and presents the response back
         // from the server.
-        RPCResponse OpenFile(const std::string& filename, const std::string& path, const int flags) {
-            // Data we are sending to the server.
-            RPCRequest request;
-            request.set_filename(filename);
-            request.set_path(path);
+        int OpenFile(const std::string& filename, const int flags) {
 
-            // Container for the data we expect from the server.
-            RPCResponse reply;
+            ClientCacheValue *ccv1 = diskcache.getCacheValue(filename);
+            if(ccv1 == nullptr){
+                // Data we are sending to the server. ##ASSUMING FILENAMES include path
+               
+                RPCRequest request;
+                request.set_filename(filename);
 
-            // Context for the client. It could be used to convey extra information to
-            // the server and/or tweak certain RPC behaviors.
-            ClientContext context;
+                // Container for the data we expect from the server.
+                RPCResponse reply;
 
-            // The actual RPC.
-            Status status = stub_->OpenFile(&context, request, &reply);
+                // Context for the client. It could be used to convey extra information to
+                // the server and/or tweak certain RPC behaviors.
+                ClientContext context;
 
-            // Act upon its status.
-            if (status.ok()) {
-                return reply;
-            } else {
-                std::cout << status.error_code() << ": " << status.error_message()
-                    << std::endl;
-                reply.set_status(-1);
-                return reply;
+                // The actual RPC.
+                Status status = stub_->OpenFile(&context, request, &reply);
+                // Act upon its status.
+                if (status.ok()) {
+                    std::local_path = (client_path + reply->inode() + ".tmp").c_str();
+                    int fd = open(local_path,  O_WRONLY | O_CREAT | O_EXCL, 0644);
+                    if (fileDescriptor != -1) {
+                        ssize_t writeResult = write(fileDescriptor, reply->data(), reply->data().size());
+                        //SUCCESS
+                        FileAttrs fileatts(reply->filesize,reply->atime,reply->mtime);
+                        ClientCacheValue ccv(fileatts, local_path, reply->inode, false, fd);
+                        diskcache.addCacheValue(filename, ccv);
+                    }
+                    return fd;
+                } else {
+                    return -status.error_code();
+                }
+            }
+            else{
+                //ALREADY IN CACHE
+                int fd = ccv1->fileDiscriptor;
+                return fd;
+               
+
             }
         }
 
-        RPCResponse CloseFile(const std::string& filename, const std::string& path, const std::string& data) {
+        int CloseFile(const std::string& filename) {
             // Data we are sending to the server.
-            RPCRequest request;
-            request.set_filename(filename);
-            request.set_path(path);
-            request.set_data(data);
+            ClientCacheValue *ccv1 = diskcache.getCacheValue(filename);
+            if(ccv1 == nullptr){
+                errno=ENOENT;
+            }
+            else if(!ccv1->isDirty){
+                deleteCacheValue(filename)
+                return 0;
+            }
+            else{
+                RPCRequest request;
+                request.set_filename(filename);
+                request.set_data(data);
+                // Container for the data we expect from the server.
+                RPCResponse reply;
 
-            // Container for the data we expect from the server.
-            RPCResponse reply;
+                // Context for the client. It could be used to convey extra information to
+                // the server and/or tweak certain RPC behaviors.
+                ClientContext context;
 
-            // Context for the client. It could be used to convey extra information to
-            // the server and/or tweak certain RPC behaviors.
-            ClientContext context;
+                // The actual RPC.
+                Status status = stub_->CloseFile(&context, request, &reply);
 
-            // The actual RPC.
-            Status status = stub_->CloseFile(&context, request, &reply);
-
-            // Act upon its status.
-            if (status.ok()) {
-                return reply;
-            } else {
-                std::cout << status.error_code() << ": " << status.error_message()
-                    << std::endl;
-                reply.set_status(-1);
-                return reply;
+                if (status.ok()) {
+                    deleteCacheValue(filename);
+                    return 0;
+                }
+                else{
+                    return -status.error_code();
+                }
+            }
+        }
+        
+        //Returning either fD or error
+        int ReadFile(const std::string& filename){
+            ClientCacheValue *ccv1 = diskcache.getCacheValue(filename);
+            if(ccv1 == nullptr){
+                errno=ENOENT;
+            }
+            else{
+                return ccv1->fileDiscriptor;
             }
         }
 
-        RPCResponse CreateFile(const std::string& filename, const std::string& path, const int mode) {
-            // Data we are sending to the server.
-            RPCRequest request;
-            request.set_filename(filename);
-            request.set_path(path);
-            request.set_mode(mode);
-
-            // Container for the data we expect from the server.
-            RPCResponse reply;
-
-            // Context for the client. It could be used to convey extra information to
-            // the server and/or tweak certain RPC behaviors.
-            ClientContext context;
-
-            // The actual RPC.
-            Status status = stub_->CreateFile(&context, request, &reply);
-
-            // Act upon its status.
-            if (status.ok()) {
-                return reply;
-            } else {
-                std::cout << status.error_code() << ": " << status.error_message()
-                    << std::endl;
-                reply.set_status(-1);
-                return reply;
+        //Returning either fD or error
+        int WriteFile(const std::string& filename){
+            ClientCacheValue *ccv1 = diskcache.getCacheValue(filename);
+            if(ccv1 == nullptr){
+                errno=ENOENT;
+            }
+            else{
+                if(!ccv1->isDirty()){
+                    ccv1->isDirty = true;
+                    diskcache.updateCacheValue(filename, ccv1);
+                }
+                return ccv1->fileDiscriptor;
             }
         }
+
 
         RPCResponse DeleteFile(const std::string& filename, const std::string& path) {
             // Data we are sending to the server.
-            RPCRequest request;
-            request.set_filename(filename);
-            request.set_path(path);
+            ClientCacheValue *ccv1 = diskcache.getCacheValue(filename);
+            if(ccv1 == nullptr){
+                errno=ENOENT;
+            }
+            else{
+                RPCRequest request;
+                request.set_filename(filename);
+                // Container for the data we expect from the server.
+                RPCResponse reply;
 
-            // Container for the data we expect from the server.
-            RPCResponse reply;
+                // Context for the client. It could be used to convey extra information to
+                // the server and/or tweak certain RPC behaviors.
+                ClientContext context;
 
-            // Context for the client. It could be used to convey extra information to
-            // the server and/or tweak certain RPC behaviors.
-            ClientContext context;
+                // The actual RPC.
+                Status status = stub_->DeleteFile(&context, request, &reply);
 
-            // The actual RPC.
-            Status status = stub_->DeleteFile(&context, request, &reply);
-
-            // Act upon its status.
-            if (status.ok()) {
-                return reply;
-            } else {
-                std::cout << status.error_code() << ": " << status.error_message()
-                    << std::endl;
-                reply.set_status(-1);
-                return reply;
+                if (status.ok()) {
+                    deleteCacheValue(filename);
+                    return 0;
+                }
+                else{
+                    return -status.error_code();
+                }
             }
         }
 
@@ -164,6 +194,8 @@ class wiscAFSClient {
                 return reply;
             }
         }
+
+
 
         RPCResponse OpenDir(const std::string& dirname, const std::string& path, const int mode) {
             // Data we are sending to the server.
@@ -220,7 +252,7 @@ class wiscAFSClient {
             }
         }
 
-        RPCResponse GetAttr(const std::string& filename, const std::string& path) {
+        RPCResponse GetAttr(const std::string& filename) {
             // Data we are sending to the server.
             RPCRequest request;
             request.set_filename(filename);
@@ -240,9 +272,7 @@ class wiscAFSClient {
             if (status.ok()) {
                 return reply;
             } else {
-                std::cout << status.error_code() << ": " << status.error_message()
-                    << std::endl;
-                reply.set_status(-1);
+                reply.set_status(-status.error_code());
                 return reply;
             }
         }
