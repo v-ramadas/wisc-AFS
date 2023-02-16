@@ -20,21 +20,21 @@ extern void config_delete(struct err_inj_q *config);
 struct unreliablefs_config conf;
 
 static struct fuse_operations unreliable_ops = {
-    .getattr     = wiscAFS_getattr,
+    .getattr     = unreliable_getattr,
     .readlink    = unreliable_readlink,
     .mknod       = unreliable_mknod,
-    .mkdir       = wiscAFS_mkdir,
+    .mkdir       = unreliable_mkdir,
     .unlink      = unreliable_unlink,
-    .rmdir       = wiscAFS_rmdir,
+    .rmdir       = unreliable_rmdir,
     .symlink     = unreliable_symlink,
-    .rename      = wiscAFS_rename,
+    .rename      = unreliable_rename,
     .link        = unreliable_link,
     .chmod       = unreliable_chmod,
     .chown       = unreliable_chown,
-    .truncate    = wiscAFS_truncate,
+    .truncate    = unreliable_truncate,
     .open	 = wiscAFS_open,
-    .read	 = wiscAFS_read,
-    .write       = wiscAFS_write,
+    .read	 = unreliable_read,
+    .write       = unreliable_write,
     .statfs      = unreliable_statfs,
     .flush       = unreliable_flush,
     .release     = unreliable_release,
@@ -45,8 +45,8 @@ static struct fuse_operations unreliable_ops = {
     .listxattr   = unreliable_listxattr,
     .removexattr = unreliable_removexattr,
 #endif /* HAVE_XATTR */
-    .opendir     = wiscAFS_opendir,
-    .readdir     = wiscAFS_readdir,
+    .opendir     = unreliable_opendir,
+    .readdir     = unreliable_readdir,
     .releasedir  = unreliable_releasedir,
     .fsyncdir    = unreliable_fsyncdir,
 
@@ -54,10 +54,13 @@ static struct fuse_operations unreliable_ops = {
     .destroy     = unreliable_destroy,
 
     .access      = unreliable_access,
-    .create      = wiscAFS_create,
+    .create      = unreliable_create,
     .ftruncate   = unreliable_ftruncate,
-    .fgetattr    = wiscAFS_fgetattr,
+    .fgetattr    = unreliable_fgetattr,
     .lock        = unreliable_lock,
+#ifdef HAVE_UTIMENSAT
+    .utimens     = unreliable_utimens,
+#endif /* HAVE_UTIMENSAT */
 #if !defined(__OpenBSD__)
     .ioctl       = unreliable_ioctl,
 #endif /* __OpenBSD__ */
@@ -67,9 +70,6 @@ static struct fuse_operations unreliable_ops = {
 #ifdef HAVE_FALLOCATE
     .fallocate   = unreliable_fallocate,
 #endif /* HAVE_FALLOCATE */
-#ifdef HAVE_UTIMENSAT
-    .utimens     = unreliable_utimens,
-#endif /* HAVE_UTIMENSAT */
 };
 
 enum {
@@ -132,12 +132,8 @@ int is_dir(const char *path) {
 
 int main(int argc, char *argv[])
 {
-    std::string target_str;
-    target_str = "10.10.1.2:50051";
-
-    wiscAFSClient afsClient (
-      grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-
+    const char* target_str = "10.10.1.2:50051";
+    init_wiscAFS(target_str);
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     memset(&conf, 0, sizeof(conf));
     conf.seed = time(0);
@@ -145,6 +141,7 @@ int main(int argc, char *argv[])
     fuse_opt_parse(&args, &conf, unreliablefs_opts, unreliablefs_opt_proc);
     srand(conf.seed);
     fprintf(stdout, "random seed = %d\n", conf.seed);
+    fprintf(stderr, "Did this work?\n");
 
     if (is_dir(conf.basedir) == 0) {
        fprintf(stderr, "basedir ('%s') is not a directory\n", conf.basedir);

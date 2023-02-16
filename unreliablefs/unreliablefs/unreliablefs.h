@@ -15,5 +15,4 @@ typedef struct unreliablefs_config {
      pthread_mutex_t   mutex;
 } unreliablefs_config;
 
-extern wiscAFSClient afsClient;
 #endif /* UNRELIABLEFS_HH */

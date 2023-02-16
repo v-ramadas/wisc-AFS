@@ -1,0 +1,89 @@
+ubuntu_1804: &ubuntu_1804
+  container:
+    image: ubuntu:bionic
+  env:
+    UBUNTU_CODENAME: bionic
+    DEBIAN_FRONTEND: noninteractive
+
+ubuntu_2004: &ubuntu_2004
+  container:
+    image: ubuntu:focal
+  env:
+    UBUNTU_CODENAME: focal
+    DEBIAN_FRONTEND: noninteractive
+
+ubuntu_1804_gcc: &ubuntu_1804_gcc
+  <<: *ubuntu_1804
+  env:
+    CC: gcc-7
+    DEBIAN_FRONTEND: noninteractive
+  bootstrap_script:
+    - apt-get update
+  install_script:
+    - apt-get install -y cmake libc-dev build-essential fuse libfuse-dev mandoc  python-dev python3-dev python3-pytest fio
+
+ubuntu_1804_clang: &ubuntu_1804_clang
+  <<: *ubuntu_1804
+  env:
+    CC: clang
+    DEBIAN_FRONTEND: noninteractive
+  bootstrap_script:
+    - apt-get update
+  install_script:
+    - apt-get install -y cmake libc-dev build-essential fuse libfuse-dev mandoc  python-dev python3-dev python3-pytest fio clang
+
+ubuntu_2004_gcc: &ubuntu_2004_gcc
+  <<: *ubuntu_2004
+  env:
+    CC: gcc
+    DEBIAN_FRONTEND: noninteractive
+  bootstrap_script:
+    - apt-get update
+  install_script:
+    - apt-get install -y cmake libc-dev build-essential fuse libfuse-dev mandoc python3-pytest fio
+
+ubuntu_2004_clang: &ubuntu_2004_clang
+  <<: *ubuntu_2004
+  env:
+    CC: clang-12
+    DEBIAN_FRONTEND: noninteractive
+  bootstrap_script:
+    - apt-get update
+  install_script:
+    - apt-get install -y cmake libc-dev build-essential fuse libfuse-dev mandoc python3-pytest fio clang-12
+
+freebsd_12_2: &freebsd_12_2
+  freebsd_instance:
+    image: freebsd-12-2-release-amd64
+  env:
+    CC: clang
+  install_script:
+    - ASSUME_ALWAYS_YES=yes pkg bootstrap -f; pkg install -y cmake fusefs-libs pkgconf python3 py39-pip py39-pytest fio
+    - kldload fuse
+    - kldstat
+
+task:
+  matrix:
+    - name: "Build and test on Ubuntu 18.04 LTS with GCC 7"
+      <<: *ubuntu_1804_gcc
+    - name: "Build and test on Ubuntu 18.04 LTS with Clang 6"
+      <<: *ubuntu_1804_clang
+    - name: "Build and test on Ubuntu 20.04 with GCC 9"
+      <<: *ubuntu_2004_gcc
+    - name: "Build and test on Ubuntu 20.04 with Clang 12"
+      <<: *ubuntu_2004_clang
+    - name: "Build and test on FreeBSD 12.2"
+      <<: *freebsd_12_2
+
+  build_script:
+    - mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Debug ..
+    - make
+
+  test_script:
+    - make -C build pytest
+
+  always:
+    junit_artifacts:
+      path: "report.xml"
+      format: junit
+      type: text/xml
