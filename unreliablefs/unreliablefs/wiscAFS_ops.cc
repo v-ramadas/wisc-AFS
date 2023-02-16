@@ -67,12 +67,12 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
     int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_TRUNC, 0777);
     fprintf(stdout, "Here\n");
     write(fd, "New File\n!", strlen("New File\n!"));
-    RPCResponse ret = afsClient->OpenFile(s_path, fi->flags);
-    if (ret.status() == -1) {
+    int ret = afsClient->OpenFile(s_path, fi->flags);
+    if (ret == -1) {
         write(fd, "Sorry!", strlen("Sorry!"));
         return -errno;
     }
-    write(fd, ret.data().c_str(), strlen(ret.data().c_str()));
+//    write(fd, ret.data().c_str(), strlen(ret.data().c_str()));
 
     ret2 = open(path, fi->flags);
     if (ret2 == -1) {

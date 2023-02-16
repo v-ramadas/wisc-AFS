@@ -8,17 +8,27 @@ set(UNRELIABLEFS_SRC conf.c
                      unreliablefs_ops.c
                      wiscAFS_ops.cc)
 
+set(HOME_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../)
 find_package(FUSE 2.9 REQUIRED)
 
 include(../../wiscAFS/common.cmake)
 find_package(gRPC CONFIG REQUIRED)
+find_library(WISCAFS_LIB wiscAFS_grpc_proto HINTS ${HOME_PATH}/wiscAFS/cmake/build)
+#find_library(_GRPC_GRPCPP grpc++ HINTS ~/.local/lib)
+#find_library(_PROTOBUF_LIBPROTOBUF protobuf HINTS ~/.local/lib)
 
 add_definitions(${FUSE_DEFINITIONS})
 add_executable(${PROJECT_NAME} ${UNRELIABLEFS_SRC})
 target_include_directories(${PROJECT_NAME} PRIVATE ${FUSE_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} ${FUSE_LIBRARIES} wiscAFS_grpc_proto gRPC::grpc++)
+target_link_libraries(${PROJECT_NAME} ${FUSE_LIBRARIES} ${WISCAFS_LIB} gRPC::grpc++)
 target_include_directories(${PROJECT_NAME} PRIVATE ../../wiscAFS)
 target_include_directories(${PROJECT_NAME} PRIVATE ../../wiscAFS/cmake/build)
+#target_include_directories(${PROJECT_NAME} PRIVATE ${HOME_PATH})
+#target_include_directories(${PROJECT_NAME} PRIVATE ~/.local/include)
+#target_include_directories(${PROJECT_NAME} PRIVATE ${HOME_PATH}/wiscAFS)
+#target_include_directories(${PROJECT_NAME} PRIVATE ${HOME_PATH}/wiscAFS/cmake/build)
+#target_link_libraries(${PROJECT_NAME} ${FUSE_LIBRARIES} ${WISCAFS_LIB} ${_REFLECTION} ${_PROTOBUF_LIBPROTOBUF} ${_GRPC_GRPCPP})
+#target_link_directories(${PROJECT_NAME} PRIVATE ${HOME_PATH}/wiscAFC/cmake/build)
 
 target_compile_options(${PROJECT_NAME} PUBLIC -D_FILE_OFFSET_BITS=64 -Wall -Wextra -Wno-unused-parameter)
 target_compile_options(${PROJECT_NAME} PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14 -D_FILE_OFFSET_BITS=64>)
