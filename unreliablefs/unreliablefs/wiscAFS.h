@@ -1,6 +1,6 @@
 #pragma once
 
-#include "grpc/examples/cpp/wiscAFC/wiscAFS_client.hh"
+#include "wiscAFS_client.hh"
 
 #ifdef __cplusplus
 extern "C" {
