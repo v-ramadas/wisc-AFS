@@ -21,10 +21,10 @@ cmake_minimum_required(VERSION 3.8)
 
 project(wiscAFS C CXX)
 
-include(../cmake/common.cmake)
+include(./common.cmake)
 
 # Proto file
-get_filename_component(wiscAFS_proto "../../protos/wiscAFS.proto" ABSOLUTE)
+get_filename_component(wiscAFS_proto "./wiscAFS.proto" ABSOLUTE)
 get_filename_component(wiscAFS_proto_path "${wiscAFS_proto}" PATH)
 
 # Generated sources
