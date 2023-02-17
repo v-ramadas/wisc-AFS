@@ -47,11 +47,14 @@ class wiscAFSImpl final : public AFSController::Service {
     Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
         // Error handle the path and filename
         std::string filename = request->filename();
-        int mode = request->mode();
+        int flags = request->flags();
         std::ifstream f(filename);
         struct stat file_info;
 
-        int fd = open((filename).c_str(), mode);
+        int fd = open((filename).c_str(), flags);
+        std::cout << "Printing filename and fd" << filename << " " << fd << std::endl;
+        if (fd < 0)
+            std::cout << "Cannot open file " << filename << std::endl;
         RPCAttr *rpcAttr = new RPCAttr;
         if (fd != -1) {
             //Call get Attribute 
@@ -64,15 +67,23 @@ class wiscAFSImpl final : public AFSController::Service {
             int sz = lseek(fd, 0L, SEEK_END);
             lseek(fd, 0L, SEEK_SET);
             char *buffer = new char[sz];
-            int err = read(fd, buffer, sz);
-            std::string obuffer = buffer;
+            std::cout << "size = " << sz << std::endl;
+            if(sz == 0){
+                reply->set_data("");
+            }
+            else{
+                int err = read(fd, buffer, sz);
+                reply->set_data(buffer);
+            }
+            //std::cout << sz << "HSdjsdbj" << std::endl;
+           // std::string obuffer = buffer;
 
             //Set all attrs
             rpcAttr->set_filesize(sz);
             rpcAttr->set_atime(file_info.st_atime);
             rpcAttr->set_mtime(file_info.st_mtime);
             //Populate reply
-            reply->set_data(obuffer);
+            // reply->set_data(obuffer);
             reply->set_allocated_rpcattr(rpcAttr);
             reply->set_status(1);
             reply->set_inode(file_info.st_ino);
