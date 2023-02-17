@@ -1,5 +1,4 @@
-#ifndef WISC_AFS_CLIENT
-#define WISC_AFS_CLIENT
+#pragma once
 
 #include <iostream>
 #include <memory>
@@ -12,15 +11,16 @@
 #include <grpcpp/grpcpp.h>
 #include "wiscAFS.grpc.pb.h"
 
+#ifdef __cplusplus
+extern "C" {
 #endif
-
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using wiscAFS::AFSController;
 using wiscAFS::RPCResponse;
 using wiscAFS::RPCRequest;
-using wiscAFS::RPCAttr;
+using wiscAFS::FileInfo;
 
 class wiscAFSClient {
 
@@ -45,16 +45,20 @@ class wiscAFSClient {
         int WriteFile(const std::string& filename);
 
         // Data we are sending to the server.
-        RPCResponse DeleteFile(const std::string& filename, const std::string& path);
+        RPCResponse DeleteFile(const std::string& filename);
 
-        RPCResponse CreateDir(const std::string& dirname, const std::string& path, const int mode);
+        RPCResponse CreateDir(const std::string& dirname, const int mode);
 
-        RPCResponse OpenDir(const std::string& dirname, const std::string& path, const int mode);
+        RPCResponse OpenDir(const std::string& dirname, const int mode);
 
-        RPCResponse RemoveDir(const std::string& dirname, const std::string& path);
+        RPCResponse RemoveDir(const std::string& dirname);
 
         RPCResponse GetAttr(const std::string& filename);
 
     private:
         std::unique_ptr<AFSController::Stub> stub_;
 };
+
+#ifdef __cplusplus
+}
+#endif

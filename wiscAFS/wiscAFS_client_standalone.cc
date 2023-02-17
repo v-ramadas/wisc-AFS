@@ -50,13 +50,14 @@ int main(int argc, char** argv) {
             grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
     std::string filename("a.txt");
     std::string dirname("dir1");
-    std::string path("/users/vramadas/grpc/examples/cpp/wiscAFS/cmake/build/");
+    std::string path("/users/vramadas/a.txt");
     std::string data("asdafgdf\nssfdlkjgdgklfg\n");
-    int flags = O_RDONLY;
+    int flags = O_CREAT| O_RDONLY;
     int mode = S_IRWXU;
     int dirmode = 700;
     std::cout << "Sending OpenFile\n" ;
     int reply = afsClient.OpenFile(path, flags);
+    std::cout << reply;
 //    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
     /*std::cout << "Sending CreateFile\n" ;

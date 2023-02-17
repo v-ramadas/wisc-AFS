@@ -42,16 +42,25 @@ message RPCRequest {
   string data = 5;
 }
 
-message RPCAttr {
-    int32 filesize = 1;
-    int64 atime = 2;
-    int64 mtime = 3;
+message FileInfo {
+    int32 st_dev = 1;
+    int32 st_ino = 2;
+    int32 st_mode = 3;
+    int32 st_nlink = 4;
+    int32 st_uid = 5;
+    int32 st_gid = 6;
+    int32 st_rdev = 7;
+    int64 st_size = 8;
+    int64 st_blksize = 9;
+    int64 st_blocks = 10;
+    int64 st_atim = 11;
+    int64 st_mtim = 12;
+    int64 st_ctim = 13;
 }
 
 message RPCResponse {
   int32 status = 1;
   string data = 2;
-  int32 inode = 3;
-  optional RPCAttr rpcAttr = 4;
+  optional FileInfo fileInfo = 4;
 
 }
