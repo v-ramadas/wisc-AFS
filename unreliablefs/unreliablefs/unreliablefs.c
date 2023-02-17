@@ -132,8 +132,6 @@ int is_dir(const char *path) {
 
 int main(int argc, char *argv[])
 {
-    const char* target_str = "10.10.1.2:50051";
-    init_wiscAFS(target_str);
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     memset(&conf, 0, sizeof(conf));
     conf.seed = time(0);
@@ -177,6 +175,10 @@ int main(int argc, char *argv[])
         perror("pthread_mutex_init");
         return EXIT_FAILURE;
     }
+
+    const char* target_str = "10.10.1.2:50051";
+    init_wiscAFS(target_str);
+    //printf("Printing object address from main = %x\n", afsClient);
 
     fprintf(stdout, "starting FUSE filesystem unreliablefs\n");
     int ret = fuse_main(args.argc, args.argv, &unreliable_ops, NULL);

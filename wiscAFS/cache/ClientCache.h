@@ -10,9 +10,9 @@ class FileAttrs{
     public:
     FileAttrs() : filesize(0), atime(0), mtime(0) {};
     FileAttrs(const int file_size, const int a_time, const int mtime) : filesize(file_size), atime(a_time), mtime(mtime){};
-    int filesize;
-    int atime;
-    int mtime;
+    unsigned int filesize;
+    unsigned long int atime;
+    unsigned long int mtime;
     
 };
 
@@ -30,7 +30,7 @@ class ClientCacheValue {
 
 class DiskCache {
     
-    const std::string CACHE_FILE =  "cache.txt";
+    const std::string CACHE_FILE =  "cache_metadata.txt";
     std::map<std::string, ClientCacheValue> cache;
 
     public:
@@ -69,7 +69,10 @@ class DiskCache {
     void saveCache() {
         std::ofstream cache_file(CACHE_FILE);
         if (cache_file) {
-            for (const auto& [key, value] : cache) {
+            //for (const auto& [key, value] : cache) {
+            for (auto it = cache.begin(); it != cache.end(); it++) {
+                std::string key = it->first;
+                ClientCacheValue value = it->second;
                 cache_file << key << ":" << value.inode << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDiscriptor <<":"<< value.fileAttrs.atime << ":" << value.fileAttrs.mtime << ":" <<value.fileAttrs.filesize << ":" <<std::endl;
             }
             cache_file.close();

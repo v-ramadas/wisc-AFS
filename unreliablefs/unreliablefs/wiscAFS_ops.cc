@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+//static wiscAFSClient afsClient2(grpc::CreateChannel(std::string("10.10.1.2:50051"), grpc::InsecureChannelCredentials()));
 
 
 int wiscAFS_getattr(const char *path, struct stat *buf)
@@ -62,25 +63,37 @@ int wiscAFS_rmdir(const char* path)
 
 int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 {
-    int ret2;
+    //init_wiscAFS("10.10.1.2:50051");
     std::string s_path = path;
+    char slog[1000];
     int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_TRUNC, 0777);
-    fprintf(stdout, "Here\n");
-    write(fd, "New File\n!", strlen("New File\n!"));
+    //fprintf(stdout, "Here\n");
+    write(fd, "New File!\n", strlen("New File\n!"));
+    printf("Prinitng afsCLinet from open handler = %x\n", afsClient);
+    //printf("Prinitng afsCLinet from open handler 2 = %x\n", &afsClient2);
+    sprintf(slog, "Prinitng afsCLinet from open handler = %x\n", afsClient);
+    write(fd, slog, strlen(slog));
+    //sprintf(slog, "Prinitng afsCLinet from open handler 2 = %x\n", &afsClient2);
+    //write(fd, slog, strlen(slog));
     int ret = afsClient->OpenFile(s_path, fi->flags);
     if (ret == -1) {
-        write(fd, "Sorry!", strlen("Sorry!"));
+        //fprintf(stdout, "Sorry!");
+        write(fd, "Sorry!\n", strlen("Sorry\n!"));
         return -errno;
     }
+    //fprintf(stdout, "In wisAFS_open Ret = %d\n", ret);
+    sprintf(slog, "In wisAFS_open Ret = %d\n\0", ret);
+    write(fd, slog, strlen(slog));
 //    write(fd, ret.data().c_str(), strlen(ret.data().c_str()));
 
-    ret2 = open(path, fi->flags);
+    /*ret2 = open(path, fi->flags);
     if (ret2 == -1) {
         return -errno;
-    }
-    fi->fh = ret2;
+    }*/
+    fi->fh = ret;
 
     //#fi->fh = ret.status();
+    close(fd);
     
     return 0;
 }

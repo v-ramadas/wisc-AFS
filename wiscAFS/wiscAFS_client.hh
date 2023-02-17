@@ -1,5 +1,4 @@
-#ifndef WISC_AFS_CLIENT
-#define WISC_AFS_CLIENT
+#pragma once
 
 #include <iostream>
 #include <memory>
@@ -12,7 +11,6 @@
 #include <grpcpp/grpcpp.h>
 #include "wiscAFS.grpc.pb.h"
 
-#endif
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -25,7 +23,7 @@ using wiscAFS::RPCAttr;
 class wiscAFSClient {
 
     DiskCache diskCache;
-    std::string client_path = "/temp/afs/";
+    std::string client_path = "/tmp/afs/";
     public:
         wiscAFSClient(std::shared_ptr<Channel> channel)
             : stub_(AFSController::NewStub(channel)) {
@@ -45,13 +43,13 @@ class wiscAFSClient {
         int WriteFile(const std::string& filename);
 
         // Data we are sending to the server.
-        RPCResponse DeleteFile(const std::string& filename, const std::string& path);
+        RPCResponse DeleteFile(const std::string& filename);
 
-        RPCResponse CreateDir(const std::string& dirname, const std::string& path, const int mode);
+        RPCResponse CreateDir(const std::string& dirname, const int mode);
 
-        RPCResponse OpenDir(const std::string& dirname, const std::string& path, const int mode);
+        RPCResponse OpenDir(const std::string& dirname, const int mode);
 
-        RPCResponse RemoveDir(const std::string& dirname, const std::string& path);
+        RPCResponse RemoveDir(const std::string& dirname);
 
         RPCResponse GetAttr(const std::string& filename);
 
