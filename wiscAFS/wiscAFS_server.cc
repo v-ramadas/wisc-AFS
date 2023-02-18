@@ -52,7 +52,7 @@ class wiscAFSImpl final : public AFSController::Service {
         struct stat file_info;
 
         int fd = open((filename).c_str(), flags);
-        std::cout << "Printing filename and fd" << filename << " " << fd << std::endl;
+        std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0)
             std::cout << "Cannot open file " << filename << std::endl;
         RPCAttr *rpcAttr = new RPCAttr;
@@ -104,7 +104,10 @@ class wiscAFSImpl final : public AFSController::Service {
         std::string curfileName = (fileName).c_str();
         std::string tmp_filename = (fileName + ".tmp").c_str();
         // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
-        int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        std::cout << " Inside CloseFile!" << std::endl;
+        //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        int fileDescriptor = request->filedescriptor();
+        close(fileDescriptor);
         if (fileDescriptor != -1) {
             //TEMP FILE
             ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
@@ -131,21 +134,59 @@ class wiscAFSImpl final : public AFSController::Service {
         return Status::OK;
     }
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
-    // Status CreateFile(ServerContext* context, const RPCRequest* request,
-    //         RPCResponse* reply) override {
-    //     std::string path = request->path();
-    //     std::string new_content = request->data();
-    //     std::string fileName = request->data();
-    //     std::string flag = request->data();
-    //     int fileDescriptor = open((path + fileName).c_str(), O_CREAT, flag);
-    //     if (fileDescriptor != -1) {
-    //         reply->set_status(-1);
-    //         return Status::OK;
-    //     }
+     Status CreateFile(ServerContext* context, const RPCRequest* request,
+             RPCResponse* reply) override {
+        std::string filename = request->filename();
+        int flags = request->flags();
+        std::ifstream f(filename);
+        struct stat file_info;
 
-    //     reply->set_status(1);
-    //     return Status::OK;
-    // }
+        int fd = open((filename).c_str(), flags);
+        std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
+        if (fd < 0)
+            std::cout << "Cannot create file " << filename << std::endl;
+        RPCAttr *rpcAttr = new RPCAttr;
+        if (fd != -1) {
+            //Call get Attribute 
+            if (fstat(fd, &file_info) == -1) {
+                reply->set_status(-1);
+                return Status::OK;
+            }
+
+            //Read whole file
+            int sz = lseek(fd, 0L, SEEK_END);
+            lseek(fd, 0L, SEEK_SET);
+            char *buffer = new char[sz];
+            std::cout << "size = " << sz << std::endl;
+            if(sz == 0){
+                reply->set_data("");
+            }
+            else{
+                int err = read(fd, buffer, sz);
+                reply->set_data(buffer);
+            }
+            //std::cout << sz << "HSdjsdbj" << std::endl;
+           // std::string obuffer = buffer;
+
+            //Set all attrs
+            rpcAttr->set_filesize(sz);
+            rpcAttr->set_atime(file_info.st_atime);
+            rpcAttr->set_mtime(file_info.st_mtime);
+            //Populate reply
+            // reply->set_data(obuffer);
+            reply->set_allocated_rpcattr(rpcAttr);
+            reply->set_status(1);
+            reply->set_inode(file_info.st_ino);
+
+            close(fd);
+
+        }
+        else{
+            reply->set_status(-1);
+        }
+
+        return Status::OK;
+     }
 
     //Handle cache
 
@@ -176,6 +217,7 @@ class wiscAFSImpl final : public AFSController::Service {
 
     Status CreateDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
+        std::cout << " Inside CreateDir" << std::endl;
         std::string dirName = request->data();
         int mode = request->mode();
         int result = mkdir((dirName).c_str(), mode);
