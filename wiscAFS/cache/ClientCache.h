@@ -19,11 +19,11 @@ class FileAttrs{
 class ClientCacheValue {
     public:
     ClientCacheValue(){};
-    ClientCacheValue(const FileAttrs &file_Attrs, int inode, bool isDirty, int fileDiscriptor) : fileAttrs(file_Attrs), inode(-1), isDirty(false), fileDiscriptor(fileDiscriptor)  {};
+    ClientCacheValue(const FileAttrs &file_Attrs, int inode, bool isDirty, int fileDescriptor) : fileAttrs(file_Attrs), inode(-1), isDirty(false), fileDescriptor(fileDescriptor)  {};
     FileAttrs fileAttrs;
     int inode;
     bool isDirty;
-    int fileDiscriptor;
+    int fileDescriptor;
 
 };
 
@@ -73,7 +73,7 @@ class DiskCache {
             for (auto it = cache.begin(); it != cache.end(); it++) {
                 std::string key = it->first;
                 ClientCacheValue value = it->second;
-                cache_file << key << ":" << value.inode << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDiscriptor <<":"<< value.fileAttrs.atime << ":" << value.fileAttrs.mtime << ":" <<value.fileAttrs.filesize << ":" <<std::endl;
+                cache_file << key << ":" << value.inode << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDescriptor <<":"<< value.fileAttrs.atime << ":" << value.fileAttrs.mtime << ":" <<value.fileAttrs.filesize << ":" <<std::endl;
             }
             cache_file.close();
         }

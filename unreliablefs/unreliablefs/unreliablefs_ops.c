@@ -64,9 +64,7 @@ const char *fuse_op_name[] = {
 #ifdef HAVE_FALLOCATE
     "fallocate",
 #endif /* HAVE_FALLOCATE */
-#ifdef HAVE_UTIMENSAT
     "utimens",
-#endif /* HAVE_UTIMENSAT */
     "lstat"
 };
 
@@ -653,6 +651,16 @@ void unreliable_destroy(void *private_data)
 
 }
 
+int unreliable_bmap(const char * str, size_t blocksize, uint64_t *idx)
+{
+    
+    return 0;
+
+}
+int unreliable_poll (const char * str, struct fuse_file_info *a, struct fuse_pollhandle *ph, unsigned *reventsp){
+    return 0;
+}
+
 int unreliable_access(const char *path, int mode)
 {
     int ret = error_inject(path, OP_ACCESS);
@@ -825,7 +833,6 @@ int unreliable_fallocate(const char *path, int mode,
 }
 #endif /* HAVE_FALLOCATE */
 
-#ifdef HAVE_UTIMENSAT
 int unreliable_utimens(const char *path, const struct timespec ts[2])
 {
     int ret = error_inject(path, OP_UTIMENS);
@@ -843,4 +850,3 @@ int unreliable_utimens(const char *path, const struct timespec ts[2])
 
     return 0;
 }
-#endif /* HAVE_UTIMENSAT */

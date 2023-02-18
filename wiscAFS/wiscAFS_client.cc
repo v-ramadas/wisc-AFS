@@ -49,7 +49,7 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
    //}
    /*else{
        //ALREADY IN CACHE
-       int fd = ccv1->fileDiscriptor;
+       int fd = ccv1->fileDescriptor;
        return fd;
    }*/
 }
@@ -57,16 +57,19 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
 int wiscAFSClient::CloseFile(const std::string& filename) {
     // Data we are sending to the server.
     ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
     if(ccv1 == nullptr){
         errno=ENOENT;
     }
-    else if(!ccv1->isDirty){
-        diskCache.deleteCacheValue(filename);
-        return 0;
-    }
+//    else if(!ccv1->isDirty){
+//        diskCache.deleteCacheValue(filename);
+//        return 0;
+//    }
     else{
+    write(fd, "Inside wiscAFSClient::CloseFile\n" , strlen("Inside wiscAFSClient::CloseFile\n")); 
         RPCRequest request;
         request.set_filename(filename);
+        request.set_filedescriptor(ccv1->fileDescriptor);
         //request.set_data(data);
         // Container for the data we expect from the server.
         RPCResponse reply;
@@ -94,7 +97,7 @@ int wiscAFSClient::ReadFile(const std::string& filename) {
         errno=ENOENT;
     }
     else{
-        return ccv1->fileDiscriptor;
+        return ccv1->fileDescriptor;
     }
 }
 
@@ -109,7 +112,7 @@ int wiscAFSClient::WriteFile(const std::string& filename){
             ccv1->isDirty = true;
             diskCache.updateCacheValue(filename, *ccv1);
         }
-        return ccv1->fileDiscriptor;
+        return ccv1->fileDescriptor;
     }
 }
 
@@ -149,17 +152,20 @@ RPCResponse wiscAFSClient::CreateDir(const std::string& dirname, const int mode)
    // Context for the client. It could be used to convey extra information to
    // the server and/or tweak certain RPC behaviors.
    ClientContext context;
-
+    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
    // The actual RPC.
-   Status status = stub_->CreateFile(&context, request, &reply);
-
+   Status status = stub_->CreateDir(&context, request, &reply);
+   write(fd, "CreateDir Passed\n", strlen("CreateDir Passed\n"));
+   std::cout << status.ok();
    // Act upon its status.
    if (status.ok()) {
+       write(fd, "Yay Open\n", strlen("Yay Open\n"));
        return reply;
    } else {
+
        std::cout << status.error_code() << ": " << status.error_message()
            << std::endl;
-       reply.set_status(-1);
+       reply.set_status(-status.error_code());
        return reply;
    }
 }

@@ -62,7 +62,7 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 {
     std::string s_path = path;
     char slog[1000];
-    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_TRUNC, 0777);
+    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
     //fprintf(stdout, "Here\n");
     write(fd, "New File!\n", strlen("New File\n!"));
     int ret = afsClient->OpenFile(s_path, fi->flags);
@@ -82,11 +82,22 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
     }*/
     fi->fh = ret;
 
-    //close(fd);
-    
     return 0;
 }
 
+int wiscAFS_release(const char * path, struct fuse_file_info *fi) {
+    close(fi->fh);
+    std::string s_path(path);
+    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
+    int ret = afsClient->CloseFile(s_path);
+    if (ret == -1) {
+        write(fd, "Release Failed\n", strlen("Release Failed\n"));
+        return -errno;
+    }
+    write(fd, "Release Passed\n", strlen("Release Passed\n"));
+    close(fd);
+    return 0;
+}
 int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
     return 0;
@@ -155,12 +166,19 @@ int wiscAFS_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 int wiscAFS_create(const char *path, mode_t mode,
                       struct fuse_file_info *fi)
 {
+    char slog[1000];
+    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
+    write(fd, "Inside Create (Client)!\n", strlen("Inside Create (Client)!\n!"));
     std::string s_path = path;
-    RPCResponse ret = afsClient->CreateDir(s_path, mode);
-    if (ret.status() == -1) {
+    int ret = afsClient->OpenFile(s_path, mode);
+    if (ret == -1) {
+        write(fd, "Create Failed!\n", strlen("Create Failed\n!"));
         return -errno;
     }
-    fi->fh = ret.status();
+    sprintf(slog, "In wisAFS_create Ret = %d\n\0", ret);
+    write(fd, slog, strlen(slog));
+
+    fi->fh = ret;
 
     return 0;    
 }
@@ -168,7 +186,7 @@ int wiscAFS_create(const char *path, mode_t mode,
 void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (
       grpc::CreateChannel(std::string("10.10.1.2:50051"), grpc::InsecureChannelCredentials()));
-      return NULL;
+    return NULL;
 }
 #ifdef __cplusplus
 }

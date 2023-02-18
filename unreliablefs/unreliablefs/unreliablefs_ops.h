@@ -50,25 +50,19 @@ int unreliable_ftruncate(const char *, off_t, struct fuse_file_info *);
 int unreliable_fgetattr(const char *, struct stat *, struct fuse_file_info *);
 int unreliable_lock(const char *, struct fuse_file_info *, int cmd,
                     struct flock *);
-#if !defined(__OpenBSD__)
 int unreliable_ioctl(const char *, int cmd, void *arg,
                      struct fuse_file_info *, unsigned int flags, void *data);
-#endif
 int unreliable_write_buf(const char *, struct fuse_bufvec *buf, off_t off,
                          struct fuse_file_info *);
 int unreliable_read_buf(const char *, struct fuse_bufvec **bufp,
                         size_t size, off_t off, struct fuse_file_info *);
-#ifdef HAVE_FLOCK
 int unreliable_flock(const char *, struct fuse_file_info *, int op);
-#endif /* HAVE_FLOCK */
-#ifdef HAVE_FALLOCATE
 int unreliable_fallocate(const char *, int, off_t, off_t,
                          struct fuse_file_info *);
-#endif /* HAVE_FALLOCATE */
 
-#ifdef HAVE_UTIMENSAT
 int unreliable_utimens(const char *path, const struct timespec ts[2]);
-#endif /* HAVE_UTIMENSAT */
+int unreliable_bmap (const char *, size_t blocksize, uint64_t *idx);
+int unreliable_poll (const char * str, struct fuse_file_info *, struct fuse_pollhandle *ph, unsigned *reventsp);
 
 typedef enum {
     OP_GETATTR,

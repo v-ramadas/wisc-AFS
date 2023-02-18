@@ -40,6 +40,7 @@ message RPCRequest {
   int32 mode = 3;
   int32 flags = 4;
   string data = 5;
+  int32 fileDescriptor = 6;
 }
 
 message RPCAttr {

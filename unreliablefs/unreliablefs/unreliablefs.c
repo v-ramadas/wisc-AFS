@@ -37,7 +37,7 @@ static struct fuse_operations unreliable_ops = {
     .write       = unreliable_write,
     .statfs      = unreliable_statfs,
     .flush       = unreliable_flush,
-    .release     = unreliable_release,
+    .release     = wiscAFS_release,
     .fsync       = unreliable_fsync,
 #ifdef HAVE_XATTR
     .setxattr    = unreliable_setxattr,
@@ -54,10 +54,16 @@ static struct fuse_operations unreliable_ops = {
     .destroy     = unreliable_destroy,
 
     .access      = unreliable_access,
-    .create      = unreliable_create,
-    .ftruncate   = unreliable_ftruncate,
-    .fgetattr    = unreliable_fgetattr,
+    .create      = wiscAFS_create,
     .lock        = unreliable_lock,
+<<<<<<< Updated upstream
+=======
+    //.ftruncate   = unreliable_ftruncate,
+    //.fgetattr    = unreliable_fgetattr,
+#ifdef HAVE_UTIMENSAT
+    .utimens     = unreliable_utimens,
+#endif /* HAVE_UTIMENSAT */
+>>>>>>> Stashed changes
 #if !defined(__OpenBSD__)
     .ioctl       = unreliable_ioctl,
 #endif /* __OpenBSD__ */
