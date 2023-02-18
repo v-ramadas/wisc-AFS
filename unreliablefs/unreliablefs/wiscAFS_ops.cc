@@ -15,9 +15,6 @@
 extern "C" {
 #endif
 
-//static wiscAFSClient afsClient2(grpc::CreateChannel(std::string("10.10.1.2:50051"), grpc::InsecureChannelCredentials()));
-
-
 int wiscAFS_getattr(const char *path, struct stat *buf)
 {
     memset(buf, 0, sizeof(struct stat));
@@ -63,26 +60,19 @@ int wiscAFS_rmdir(const char* path)
 
 int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 {
-    //init_wiscAFS("10.10.1.2:50051");
     std::string s_path = path;
     char slog[1000];
     int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_TRUNC, 0777);
     //fprintf(stdout, "Here\n");
     write(fd, "New File!\n", strlen("New File\n!"));
-    printf("Prinitng afsCLinet from open handler = %x\n", afsClient);
-    //printf("Prinitng afsCLinet from open handler 2 = %x\n", &afsClient2);
-    sprintf(slog, "Prinitng afsCLinet from open handler = %x\n", afsClient);
-    write(fd, slog, strlen(slog));
-    //sprintf(slog, "Prinitng afsCLinet from open handler 2 = %x\n", &afsClient2);
-    //write(fd, slog, strlen(slog));
     int ret = afsClient->OpenFile(s_path, fi->flags);
     if (ret == -1) {
         //fprintf(stdout, "Sorry!");
         write(fd, "Sorry!\n", strlen("Sorry\n!"));
         return -errno;
     }
-    //fprintf(stdout, "In wisAFS_open Ret = %d\n", ret);
-    sprintf(slog, "In wisAFS_open Ret = %d\n\0", ret);
+    printf("wiscOPS: In wisAFS_open Ret = %d\n", ret);
+    sprintf(slog, "In wisAFS_open Ret = %d\n", ret);
     write(fd, slog, strlen(slog));
 //    write(fd, ret.data().c_str(), strlen(ret.data().c_str()));
 
@@ -92,8 +82,7 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
     }*/
     fi->fh = ret;
 
-    //#fi->fh = ret.status();
-    close(fd);
+    //close(fd);
     
     return 0;
 }
@@ -176,12 +165,11 @@ int wiscAFS_create(const char *path, mode_t mode,
     return 0;    
 }
 
-int init_wiscAFS(const char* target_str) {
+void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (
       grpc::CreateChannel(std::string("10.10.1.2:50051"), grpc::InsecureChannelCredentials()));
-    return 0;
+      return NULL;
 }
-
 #ifdef __cplusplus
 }
 #endif

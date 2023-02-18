@@ -50,7 +50,7 @@ static struct fuse_operations unreliable_ops = {
     .releasedir  = unreliable_releasedir,
     .fsyncdir    = unreliable_fsyncdir,
 
-    .init        = unreliable_init,
+    .init        = wiscAFS_init,
     .destroy     = unreliable_destroy,
 
     .access      = unreliable_access,
@@ -58,9 +58,6 @@ static struct fuse_operations unreliable_ops = {
     .ftruncate   = unreliable_ftruncate,
     .fgetattr    = unreliable_fgetattr,
     .lock        = unreliable_lock,
-#ifdef HAVE_UTIMENSAT
-    .utimens     = unreliable_utimens,
-#endif /* HAVE_UTIMENSAT */
 #if !defined(__OpenBSD__)
     .ioctl       = unreliable_ioctl,
 #endif /* __OpenBSD__ */
@@ -70,6 +67,9 @@ static struct fuse_operations unreliable_ops = {
 #ifdef HAVE_FALLOCATE
     .fallocate   = unreliable_fallocate,
 #endif /* HAVE_FALLOCATE */
+#ifdef HAVE_UTIMENSAT
+    .utimens     = unreliable_utimens,
+#endif /* HAVE_UTIMENSAT */
 };
 
 enum {
@@ -175,10 +175,6 @@ int main(int argc, char *argv[])
         perror("pthread_mutex_init");
         return EXIT_FAILURE;
     }
-
-    const char* target_str = "10.10.1.2:50051";
-    init_wiscAFS(target_str);
-    //printf("Printing object address from main = %x\n", afsClient);
 
     fprintf(stdout, "starting FUSE filesystem unreliablefs\n");
     int ret = fuse_main(args.argc, args.argv, &unreliable_ops, NULL);

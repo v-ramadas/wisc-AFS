@@ -16,7 +16,7 @@ int wiscAFS_opendir(const char *, struct fuse_file_info *);
 int wiscAFS_readdir(const char *, void *buf, fuse_fill_dir_t, off_t, struct fuse_file_info*);
 int wiscAFS_create(const char*, mode_t, struct fuse_file_info *);
 
-int init_wiscAFS(const char*);
+void *wiscAFS_init(struct fuse_conn_info *conn);
 
 int temp_fn();
 #ifdef __cplusplus

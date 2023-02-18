@@ -24,16 +24,18 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
    // Act upon its status.
    if (status.ok()) {
        write(flog, "Received status ok\n", strlen("Received status ok\n"));
-       //std::cout << "Reply status in wiscAFSClient " << reply.status() << std::endl;
+       std::cout << "Client: Reply status " << reply.status() << std::endl;
        std::string local_path = (client_path + std::to_string(reply.inode()) + ".tmp").c_str();
        int fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
        if (fileDescriptor < 0) {
-            //std::cout << "Cannot open temp file " << local_path << std::endl;
+           std::cout << "Cannot open temp file " << local_path << std::endl;
        }
        if (fileDescriptor != -1) {
+           std::cout << "Client: OPEN: Reply data received at client = " << reply.data() << std::endl;
            ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
+           printf("Client: writeResult = %ld\n", writeResult);
            //SUCCESS
-           //printf("Printing fileatts = %ld, %ld, %ld\n", reply.rpcattr().filesize(),reply.rpcattr().atime(),reply.rpcattr().mtime());
+           printf("Client: Printing fileatts = %d, %ld, %ld\n", reply.rpcattr().filesize(),reply.rpcattr().atime(),reply.rpcattr().mtime());
            FileAttrs fileatts(reply.rpcattr().filesize(),reply.rpcattr().atime(),reply.rpcattr().mtime());
            ClientCacheValue ccv(fileatts, reply.inode(), false, fileDescriptor);
            diskCache.addCacheValue(filename, ccv);
