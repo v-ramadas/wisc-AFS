@@ -56,14 +56,6 @@ static struct fuse_operations unreliable_ops = {
     .access      = unreliable_access,
     .create      = wiscAFS_create,
     .lock        = unreliable_lock,
-<<<<<<< Updated upstream
-=======
-    //.ftruncate   = unreliable_ftruncate,
-    //.fgetattr    = unreliable_fgetattr,
-#ifdef HAVE_UTIMENSAT
-    .utimens     = unreliable_utimens,
-#endif /* HAVE_UTIMENSAT */
->>>>>>> Stashed changes
 #if !defined(__OpenBSD__)
     .ioctl       = unreliable_ioctl,
 #endif /* __OpenBSD__ */
