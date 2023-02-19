@@ -1,6 +1,9 @@
 #include "wiscAFS_client.hh"
 #include "cache/ClientCache.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
    //ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
    //if(ccv1 == nullptr){
@@ -25,7 +28,7 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
    if (status.ok()) {
        write(flog, "Received status ok\n", strlen("Received status ok\n"));
        std::cout << "Client: Reply status " << reply.status() << std::endl;
-       std::string local_path = (client_path + std::to_string(reply.inode()) + ".tmp").c_str();
+       std::string local_path = (client_path + std::to_string(reply.fileinfo().st_ino()) + ".tmp").c_str();
        int fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
        if (fileDescriptor < 0) {
            std::cout << "Cannot open temp file " << local_path << std::endl;
@@ -35,17 +38,18 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
            ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
            printf("Client: writeResult = %ld\n", writeResult);
            //SUCCESS
-           printf("Client: Printing fileatts = %d, %ld, %ld\n", reply.rpcattr().filesize(),reply.rpcattr().atime(),reply.rpcattr().mtime());
-           FileAttrs fileatts(reply.rpcattr().filesize(),reply.rpcattr().atime(),reply.rpcattr().mtime());
-           ClientCacheValue ccv(fileatts, reply.inode(), false, fileDescriptor);
+           printf("Client: Printing fileatts = %d, %ld, %ld\n", reply.fileinfo().st_size(),reply.fileinfo().st_atim(),reply.fileinfo().st_mtim());
+           CacheFileInfo fileatts;
+           fileatts.setFileInfo(&reply.fileinfo());
+           ClientCacheValue ccv(fileatts, false, fileDescriptor);
            diskCache.addCacheValue(filename, ccv);
        }
        return fileDescriptor;
    } 
    else {
        write(flog, "Received status not ok\n", strlen("Received status ok\n"));
-       return -status.error_code();
-   }
+       return -1;
+   } 
    //}
    /*else{
        //ALREADY IN CACHE
@@ -247,3 +251,6 @@ RPCResponse wiscAFSClient::GetAttr(const std::string& filename) {
    }
  
 }
+#ifdef __cplusplus
+}
+#endif

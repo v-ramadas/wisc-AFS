@@ -39,11 +39,28 @@ using grpc::Status;
 using wiscAFS::AFSController;
 using wiscAFS::RPCRequest;
 using wiscAFS::RPCResponse;
-using wiscAFS::RPCAttr;
+using wiscAFS::FileInfo;
 
 
 // Logic and data behind the server's behavior.
 class wiscAFSImpl final : public AFSController::Service {
+
+    void setFileInfo(FileInfo* fileInfo, struct stat info) {
+        fileInfo->set_st_dev(info.st_dev);
+        fileInfo->set_st_ino(info.st_ino);
+        fileInfo->set_st_mode(info.st_mode);
+        fileInfo->set_st_nlink(info.st_nlink);
+        fileInfo->set_st_uid(info.st_uid);
+        fileInfo->set_st_gid(info.st_gid);
+        fileInfo->set_st_rdev(info.st_rdev);
+        fileInfo->set_st_size(info.st_size);
+        fileInfo->set_st_blksize(info.st_blksize);
+        fileInfo->set_st_blocks(info.st_blocks);
+        fileInfo->set_st_atim(info.st_atim.tv_nsec);
+        fileInfo->set_st_mtim(info.st_mtim.tv_nsec);
+        fileInfo->set_st_ctim(info.st_ctim.tv_nsec);
+    }
+
     Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
         // Error handle the path and filename
         std::string filename = request->filename();
@@ -55,7 +72,7 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0)
             std::cout << "Cannot open file " << filename << std::endl;
-        RPCAttr *rpcAttr = new RPCAttr;
+        FileInfo *fileInfo = new FileInfo;
         if (fd != -1) {
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
@@ -79,14 +96,11 @@ class wiscAFSImpl final : public AFSController::Service {
            // std::string obuffer = buffer;
 
             //Set all attrs
-            rpcAttr->set_filesize(sz);
-            rpcAttr->set_atime(file_info.st_atime);
-            rpcAttr->set_mtime(file_info.st_mtime);
+            setFileInfo(fileInfo, file_info);
             //Populate reply
-            // reply->set_data(obuffer);
-            reply->set_allocated_rpcattr(rpcAttr);
+            //reply->set_data(obuffer);
+            reply->set_allocated_fileinfo(fileInfo);
             reply->set_status(1);
-            reply->set_inode(file_info.st_ino);
 
             close(fd);
 
@@ -133,6 +147,7 @@ class wiscAFSImpl final : public AFSController::Service {
         }
         return Status::OK;
     }
+
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
      Status CreateFile(ServerContext* context, const RPCRequest* request,
              RPCResponse* reply) override {
@@ -145,8 +160,8 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0)
             std::cout << "Cannot create file " << filename << std::endl;
-        RPCAttr *rpcAttr = new RPCAttr;
         if (fd != -1) {
+            FileInfo* fileInfo = new FileInfo;
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
@@ -165,19 +180,12 @@ class wiscAFSImpl final : public AFSController::Service {
                 int err = read(fd, buffer, sz);
                 reply->set_data(buffer);
             }
+
+            setFileInfo(fileInfo, file_info);
             //std::cout << sz << "HSdjsdbj" << std::endl;
            // std::string obuffer = buffer;
 
-            //Set all attrs
-            rpcAttr->set_filesize(sz);
-            rpcAttr->set_atime(file_info.st_atime);
-            rpcAttr->set_mtime(file_info.st_mtime);
-            //Populate reply
-            // reply->set_data(obuffer);
-            reply->set_allocated_rpcattr(rpcAttr);
-            reply->set_status(1);
-            reply->set_inode(file_info.st_ino);
-
+            reply->set_allocated_fileinfo(fileInfo);
             close(fd);
 
         }
@@ -192,12 +200,16 @@ class wiscAFSImpl final : public AFSController::Service {
 
     Status DeleteFile(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::string fileName = request->data();
+        std::cout << "Inside Delete File!\n";
+        std::string fileName = request->filename();
         int unlinkResult = unlink((fileName).c_str());
         if (unlinkResult != -1) {
+            std::cout << "Delete was done\n";
             reply->set_status(-1);
             return Status::OK;
-        }  
+        } else {
+            std::cout << " Delete Failed with error " << errno << "\n";
+        }
         reply->set_status(1);
         return Status::OK;
     }
@@ -231,8 +243,9 @@ class wiscAFSImpl final : public AFSController::Service {
 
     Status GetAttr(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::string filename = request->data();
-        RPCAttr * rpcAttr;// =  reply->mutable_data();
+        std::cout << "Inside GetAttr\n";
+        std::string filename = request->filename();
+        FileInfo* fileInfo = new FileInfo();// =  reply->mutable_data();
         int file_descriptor = open((filename).c_str(), O_RDONLY);
         if (file_descriptor == -1) {
             //The file could not be opened
@@ -246,10 +259,9 @@ class wiscAFSImpl final : public AFSController::Service {
             reply->set_status(-1);
             return Status::OK;
         }
-        rpcAttr->set_filesize(file_info.st_size);
-        rpcAttr->set_atime(file_info.st_atime);
-        rpcAttr->set_mtime(file_info.st_mtime);
+        setFileInfo(fileInfo, file_info);
         close(file_descriptor);
+        reply->set_allocated_fileinfo(fileInfo);
         reply->set_status(1);
         return Status::OK;
     }

@@ -11,14 +11,16 @@
 #include <grpcpp/grpcpp.h>
 #include "wiscAFS.grpc.pb.h"
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using wiscAFS::AFSController;
 using wiscAFS::RPCResponse;
 using wiscAFS::RPCRequest;
-using wiscAFS::RPCAttr;
+using wiscAFS::FileInfo;
 
 class wiscAFSClient {
 
@@ -56,3 +58,7 @@ class wiscAFSClient {
     private:
         std::unique_ptr<AFSController::Stub> stub_;
 };
+
+#ifdef __cplusplus
+}
+#endif
