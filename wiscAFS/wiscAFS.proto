@@ -59,6 +59,21 @@ message FileInfo {
     int64 st_ctim = 13;
 }
 
+message Statfs {
+    uint32 f_type = 1;
+    uint32 f_bsize = 2;
+    uint32 f_blocks = 3;
+    uint32 f_bfree = 4;
+    uint32 f_bavail = 5;
+    uint32 f_files = 6;
+    uint32 f_ffree = 7;
+    uint32 f_fsid = 8;
+    uint32 f_namelen = 9;
+    uint32 f_frsize = 10;
+    uint32 f_flags = 11;
+    uint32 f_spare = 12;
+};
+
 message RPCResponse {
   int32 status = 1;
   string data = 2;
