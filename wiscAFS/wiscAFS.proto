@@ -28,6 +28,7 @@ service AFSController {
   rpc CreateDir (RPCRequest) returns (RPCResponse) {}
   rpc RemoveDir (RPCRequest) returns (RPCResponse) {}
   rpc GetAttr (RPCRequest) returns (RPCResponse) {}
+  rpc StatFS (RPCRequest) returns (RPCResponse) {}
   rpc OpenDir (RPCRequest) returns (RPCResponse) {}
   rpc ReadDir (RPCRequest) returns (RPCResponse) {}
 
