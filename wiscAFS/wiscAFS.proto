@@ -68,7 +68,7 @@ message Statfs {
     uint32 f_bavail = 5;
     uint32 f_files = 6;
     uint32 f_ffree = 7;
-    uint32 f_fsid = 8;
+    uint64 f_fsid = 8;
     uint32 f_namelen = 9;
     uint32 f_frsize = 10;
     uint32 f_flags = 11;
@@ -79,5 +79,5 @@ message RPCResponse {
   int32 status = 1;
   string data = 2;
   optional FileInfo fileInfo = 4;
-
+  optional Statfs statfs = 5;
 }

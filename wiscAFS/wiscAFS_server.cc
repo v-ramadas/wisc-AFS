@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
-
+#include <sys/vfs.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -40,6 +40,7 @@ using wiscAFS::AFSController;
 using wiscAFS::RPCRequest;
 using wiscAFS::RPCResponse;
 using wiscAFS::FileInfo;
+using wiscAFS::Statfs;
 
 
 // Logic and data behind the server's behavior.
@@ -59,6 +60,20 @@ class wiscAFSImpl final : public AFSController::Service {
         fileInfo->set_st_atim(info.st_atim.tv_nsec);
         fileInfo->set_st_mtim(info.st_mtim.tv_nsec);
         fileInfo->set_st_ctim(info.st_ctim.tv_nsec);
+    }
+
+    void setStatFS(Statfs* statFS, struct statfs info) {
+        statFS->set_f_type(info.f_type);
+        statFS->set_f_bsize(info.f_bsize);
+        statFS->set_f_blocks(info.f_blocks);
+        statFS->set_f_bfree(info.f_bfree);
+        statFS->set_f_bavail(info.f_bavail);
+        statFS->set_f_files(info.f_files);
+        statFS->set_f_ffree(info.f_ffree);
+        statFS->set_f_fsid((info.f_fsid.__val[1] << 32) | (info.f_fsid.__val[0]));
+        statFS->set_f_namelen(info.f_namelen);
+        statFS->set_f_frsize(info.f_frsize);
+        statFS->set_f_flags(info.f_flags);
     }
 
     Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
@@ -262,6 +277,23 @@ class wiscAFSImpl final : public AFSController::Service {
         setFileInfo(fileInfo, file_info);
         close(file_descriptor);
         reply->set_allocated_fileinfo(fileInfo);
+        reply->set_status(1);
+        return Status::OK;
+    }
+
+    Status StatFS(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        std::cout << "Inside StatFS\n";
+        std::string filename = request->filename();
+        Statfs* statfs_obj = new Statfs();// =  reply->mutable_data();
+
+        struct statfs file_info;
+        if (statfs(filename.c_str(), &file_info) == -1) {
+            //The file information could not be retrieved.
+            reply->set_status(-1);
+            return Status::OK;
+        }
+        setStatFS(statfs_obj, file_info);
+        reply->set_allocated_statfs(statfs_obj);
         reply->set_status(1);
         return Status::OK;
     }
