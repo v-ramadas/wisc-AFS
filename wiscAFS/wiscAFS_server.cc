@@ -73,7 +73,7 @@ class wiscAFSImpl final : public AFSController::Service {
         statFS->set_f_bavail(info.f_bavail);
         statFS->set_f_files(info.f_files);
         statFS->set_f_ffree(info.f_ffree);
-        statFS->set_f_fsid((info.f_fsid.__val[1] << 32) | (info.f_fsid.__val[0]));
+        statFS->set_f_fsid(((long)(info.f_fsid.__val[1]) << 32) | (info.f_fsid.__val[0]));
         statFS->set_f_namelen(info.f_namelen);
         statFS->set_f_frsize(info.f_frsize);
         statFS->set_f_flags(info.f_flags);
@@ -87,6 +87,8 @@ class wiscAFSImpl final : public AFSController::Service {
         std::ifstream f(filename);
         struct stat file_info;
 
+        std::cout << "WiscServer: Entering OpenFile\n";
+
         int fd = open((filename).c_str(), flags);
         std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0)
@@ -96,6 +98,8 @@ class wiscAFSImpl final : public AFSController::Service {
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
+                reply->set_error(errno);
+                std::cout << "WiscServer: Exiting OpenFile\n";
                 return Status::OK;
             }
 
@@ -120,13 +124,15 @@ class wiscAFSImpl final : public AFSController::Service {
             //reply->set_data(obuffer);
             reply->set_allocated_fileinfo(fileInfo);
             reply->set_status(1);
-
             close(fd);
 
         }
         else{
             reply->set_status(-1);
         }
+
+        reply->set_error(errno);
+        std::cout << "WiscServer: Exiting OpenFile\n";
 
         return Status::OK;
     }
@@ -138,7 +144,7 @@ class wiscAFSImpl final : public AFSController::Service {
         std::string curfileName = (fileName).c_str();
         std::string tmp_filename = (fileName + ".tmp").c_str();
         // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
-        std::cout << " Inside CloseFile!" << std::endl;
+        std::cout << "wiscServer: Entering CloseFile" << std::endl;
         //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
         int fileDescriptor = request->filedescriptor();
         close(fileDescriptor);
@@ -147,24 +153,31 @@ class wiscAFSImpl final : public AFSController::Service {
             ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
             if (writeResult == -1) {
                 reply->set_status(-1);
+                reply->set_error(errno);
                 close(fileDescriptor);
                 unlink(tmp_filename.c_str());
+                std::cout << "wiscServer: Exiting CloseFile\n";
                 return Status::OK;
             }
             int closeResult = close(fileDescriptor);
             if(closeResult == -1){
                 reply->set_status(-1);
+                reply->set_error(errno);
+                std::cout << "wiscServer: Exiting CloseFile\n";
                 return Status::OK;
             }
             if (rename(tmp_filename.c_str(), fileName.c_str()) == -1) {
                 unlink(tmp_filename.c_str());
-                 return Status::OK;
+                std::cout << "wiscServer: Exiting CloseFile\n";
+                return Status::OK;
             }
             reply->set_status(1);
         }
         else{
             reply->set_status(-1);
         }
+        reply->set_error(errno);
+        std::cout << "wiscServer: Exiting CloseFile\n";
         return Status::OK;
     }
 
@@ -176,6 +189,7 @@ class wiscAFSImpl final : public AFSController::Service {
         std::ifstream f(filename);
         struct stat file_info;
 
+        std::cout << "wiscServer: Entering CreateFile\n";
         int fd = open((filename).c_str(), flags);
         std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0)
@@ -185,6 +199,8 @@ class wiscAFSImpl final : public AFSController::Service {
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
+                reply->set_error(errno);
+                std::cout << "wiscServer: Exiting CreateFile\n";
                 return Status::OK;
             }
 
@@ -212,53 +228,59 @@ class wiscAFSImpl final : public AFSController::Service {
         else{
             reply->set_status(-1);
         }
-
+        reply->set_error(errno);
+        std::cout << "wiscServer: Exiting CreateFile\n";
         return Status::OK;
      }
 
-    //Handle cache
-
     Status DeleteFile(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::cout << "Inside Delete File!\n";
+        std::cout << "wiscServer: Entering DeleteFile!\n";
         std::string fileName = request->filename();
         int unlinkResult = unlink((fileName).c_str());
         if (unlinkResult != -1) {
             std::cout << "Delete was done\n";
             reply->set_status(-1);
-            return Status::OK;
         } else {
             std::cout << " Delete Failed with error " << errno << "\n";
+            reply->set_status(1);
         }
-        reply->set_status(1);
+        reply->set_error(errno);
+        std::cout << "wiscServer: Exiting DeleteFile\n";
         return Status::OK;
     }
 
     Status RemoveDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::string dirName = request->filename();
+        std::cout << "wiscServer: Entering RemoveDir\n";
+        std::string dirName = request->data();
         int result = rmdir((dirName).c_str());
         if (result == -1) {
-            reply->set_status(errno);
-            return Status::OK;
+            reply->set_status(-1);
+        } else {
+            reply->set_status(1);
         }
-        reply->set_status(1);
+        reply->set_error(errno);
+        std::cout << "wiscServer: Exiting RemoveDir\n";
         return Status::OK;
 
     }
 
     Status CreateDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::cout << " Inside CreateDir" << std::endl;
-        std::string dirName = request->filename();
+        std::cout << "wiscServer: Inside CreateDir" << std::endl;
+        std::string dirName = request->data();
         int mode = request->mode();
         reply->set_data("Hello + " + dirName);
         int result = mkdir((dirName).c_str(), mode);
         if (result == -1) {
             reply->set_status(errno);
             return Status::OK;
+        } else {
+            reply->set_status(1);
         }
-        reply->set_status(1);
+        reply->set_error(errno);
+        std::cout << "wiscServer: Exiting RemoveDir\n";
         return Status::OK;
     }
 
@@ -308,7 +330,7 @@ class wiscAFSImpl final : public AFSController::Service {
 
     Status GetAttr(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::cout << "Inside GetAttr\n";
+        std::cout << "wiscServer: Inside GetAttr\n";
         std::string filename = request->filename();
         FileInfo* fileInfo = new FileInfo();// =  reply->mutable_data();
         int file_descriptor = open((filename).c_str(), O_RDONLY);
@@ -323,16 +345,19 @@ class wiscAFSImpl final : public AFSController::Service {
             //The file information could not be retrieved.
             reply->set_status(-1);
             return Status::OK;
+        } else {
+            setFileInfo(fileInfo, file_info);
+            close(file_descriptor);
+            reply->set_allocated_fileinfo(fileInfo);
+            reply->set_status(1);
         }
-        setFileInfo(fileInfo, file_info);
-        close(file_descriptor);
-        reply->set_allocated_fileinfo(fileInfo);
-        reply->set_status(1);
+        reply->set_error(errno);
+        std::cout << "wiscServer: Exiting GetAttr\n";
         return Status::OK;
     }
 
     Status StatFS(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
-        std::cout << "Inside StatFS\n";
+        std::cout << "wiscServer: Inside StatFS\n";
         std::string filename = request->filename();
         Statfs* statfs_obj = new Statfs();// =  reply->mutable_data();
 
@@ -340,11 +365,12 @@ class wiscAFSImpl final : public AFSController::Service {
         if (statfs(filename.c_str(), &file_info) == -1) {
             //The file information could not be retrieved.
             reply->set_status(-1);
-            return Status::OK;
+        } else {
+            setStatFS(statfs_obj, file_info);
+            reply->set_allocated_statfs(statfs_obj);
+            reply->set_status(1);
         }
-        setStatFS(statfs_obj, file_info);
-        reply->set_allocated_statfs(statfs_obj);
-        reply->set_status(1);
+        std::cout << "wiscServer: Exiting StatFS\n";
         return Status::OK;
     }
 

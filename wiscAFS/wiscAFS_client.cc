@@ -49,7 +49,7 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
            ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
            printf("Client: writeResult = %ld\n", writeResult);
            //SUCCESS
-           printf("Client: Printing fileatts = %d, %ld, %ld\n", reply.fileinfo().st_size(),reply.fileinfo().st_atim(),reply.fileinfo().st_mtim());
+           printf("Client: Printing fileatts = %ld, %ld, %ld\n", reply.fileinfo().st_size(),reply.fileinfo().st_atim(),reply.fileinfo().st_mtim());
            CacheFileInfo fileatts;
            fileatts.setFileInfo(&reply.fileinfo());
            ClientCacheValue ccv(fileatts, false, fileDescriptor);
