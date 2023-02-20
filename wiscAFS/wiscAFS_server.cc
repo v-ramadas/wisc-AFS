@@ -31,10 +31,13 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/vfs.h>
+#include <dirent.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
+using grpc::ServerWriter;
+using wiscAFS::RPCDirReply;
 using grpc::Status;
 using wiscAFS::AFSController;
 using wiscAFS::RPCRequest;
@@ -77,6 +80,7 @@ class wiscAFSImpl final : public AFSController::Service {
     }
 
     Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
+        std::cout << "Hellow";
         // Error handle the path and filename
         std::string filename = request->filename();
         int flags = request->flags();
@@ -128,6 +132,7 @@ class wiscAFSImpl final : public AFSController::Service {
     }
 
     Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        std::cout << "Hellow";
         std::string newContent = request->data();
         std::string fileName = request->filename();
         std::string curfileName = (fileName).c_str();
@@ -231,10 +236,10 @@ class wiscAFSImpl final : public AFSController::Service {
 
     Status RemoveDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::string dirName = request->data();
+        std::string dirName = request->filename();
         int result = rmdir((dirName).c_str());
         if (result == -1) {
-            reply->set_status(-1);
+            reply->set_status(errno);
             return Status::OK;
         }
         reply->set_status(1);
@@ -245,16 +250,61 @@ class wiscAFSImpl final : public AFSController::Service {
     Status CreateDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
         std::cout << " Inside CreateDir" << std::endl;
-        std::string dirName = request->data();
+        std::string dirName = request->filename();
         int mode = request->mode();
+        reply->set_data("Hello + " + dirName);
         int result = mkdir((dirName).c_str(), mode);
         if (result == -1) {
-            reply->set_status(-1);
+            reply->set_status(errno);
             return Status::OK;
         }
         reply->set_status(1);
         return Status::OK;
     }
+
+    // Status OpenDir(ServerContext* context, const RPCRequest* request,
+    //         RPCResponse* reply) override {
+        
+    //     std::string dirName = request->filename();
+    //     reply->set_data("Hello + " + dirName);
+    //     DIR* result = opendir((dirName).c_str());
+    //     if (result == nullptr) {
+    //         reply->set_status(errno);
+    //         return Status::OK;
+    //     }
+    //     reply->set_status(1);
+    //     reply->set_pointer(result);
+    //     return Status::OK;
+    // }
+
+    Status ReadDir(ServerContext* context, const RPCRequest* request,
+		  ServerWriter<RPCDirReply>* writer) override {
+
+		DIR *dp;
+		struct dirent *de;
+		RPCDirReply reply;
+
+		dp = opendir((request->filename()).c_str());
+		if (dp == NULL){
+			std::cout<<"opendir dp null"<<std::endl;
+            perror(strerror(errno));
+			reply.set_error(errno);
+     
+            return grpc::Status(grpc::StatusCode::NOT_FOUND, "dp not found on server");
+		}
+
+		while((de = readdir(dp)) != NULL){
+		    reply.set_dino(de->d_ino);
+		    reply.set_dname(de->d_name);
+		    reply.set_dtype(de->d_type);
+		    writer->Write(reply);
+		}
+		reply.set_error(0);
+        closedir(dp);
+		return Status::OK;
+  }
+
+
 
     Status GetAttr(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
@@ -303,7 +353,7 @@ class wiscAFSImpl final : public AFSController::Service {
 
 
 void RunServer() {
-    std::string server_address("10.10.1.2:50051");
+    std::string server_address("10.10.1.2:50052");
     wiscAFSImpl service;
 
     grpc::EnableDefaultHealthCheckService(true);
@@ -320,6 +370,7 @@ void RunServer() {
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
+    std::cout << "Hellow";
     server->Wait();
 }
 
