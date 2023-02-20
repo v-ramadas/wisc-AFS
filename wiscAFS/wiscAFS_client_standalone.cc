@@ -18,6 +18,32 @@
 
 
 #include "wiscAFS_client.hh"
+#include <fuse.h>
+#include <dirent.h>
+
+int my_filler(void *buf, const char *name, const struct stat *stbuf, off_t off)
+{
+    // Cast the buffer to a char pointer
+    char *p = (char *)buf;
+
+    // Loop over the buffer to find the end
+    while (*(p++)) {}
+
+    // Add the directory entry to the buffer
+    struct dirent *de = (struct dirent *)p;
+    de->d_ino = stbuf->st_ino;
+    strcpy(de->d_name, name);
+
+    // Update the buffer pointer
+    p += sizeof(struct dirent);
+
+    // Null-terminate the buffer
+    *p = '\0';
+
+    // Return 0 to indicate success
+    return 0;
+}
+
 int main(int argc, char** argv) {
     // Instantiate the client. It requires a channel, out of which the actual RPCs
     // are created. This channel models a connection to an endpoint specified by
@@ -44,7 +70,7 @@ int main(int argc, char** argv) {
             return 0;
         }
     } else {
-        target_str = "10.10.1.2:50051";
+        target_str = "10.10.1.2:50052";
     }
     wiscAFSClient afsClient (
             grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
@@ -60,6 +86,22 @@ int main(int argc, char** argv) {
     std::cout << "Sending OpenFile\n" ;
     int reply = afsClient.OpenFile(path1, flags);
     std::cout << "Reply = " << reply << std::endl;
+    std::string path("/tmp/fs/adirect1");
+    std::cout << "Sending OpenFile\n" ;
+    char buf[1024];
+    int buflen = sizeof(buf);
+
+    char bufiller[1024];
+    memset(bufiller, 0, 1024);
+    struct stat stbuf;
+    stbuf.st_ino = 1;  // Set the inode number to 1
+    stbuf.st_mode = S_IFDIR | 0755;  // Set the file mode to indicate a directory
+    my_filler(buf, "my_dir", &stbuf, 0);
+    afsClient.CreateDir(path, 0777);
+    reply = afsClient.ReadDir(path,buf,my_filler);
+    std::cout << "ABN" << buf[0] << "\n";
+    std::cout << std::endl << reply;
+//    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
     std::cout << "Sending CreateFile\n" ;
       reply = afsClient.OpenFile(path2, O_CREAT);

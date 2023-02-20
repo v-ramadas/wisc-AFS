@@ -31,7 +31,6 @@ service AFSController {
   rpc StatFS (RPCRequest) returns (RPCResponse) {}
   rpc OpenDir (RPCRequest) returns (RPCResponse) {}
   rpc ReadDir (RPCRequest) returns (stream RPCDirReply) {}
-
 }
 
 message RPCDirReply{
@@ -50,10 +49,6 @@ message RPCRequest {
   string data = 5;
   int32 fileDescriptor = 6;
 }
-
-
-
-
 
 message FileInfo {
     int32 st_dev = 1;

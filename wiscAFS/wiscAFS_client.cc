@@ -1,5 +1,13 @@
 #include "wiscAFS_client.hh"
 #include "cache/ClientCache.h"
+using grpc::ClientContext;
+using grpc::Status;
+using grpc::ClientReader;
+using grpc::ClientWriter;
+#include <dirent.h>
+#include <fuse.h>
+
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -153,6 +161,7 @@ RPCResponse wiscAFSClient::CreateDir(const std::string& dirname, const int mode)
    // Data we are sending to the server.
    RPCRequest request;
    request.set_filename(dirname);
+   std::cout<<mode;
    request.set_mode(mode);
 
    // Container for the data we expect from the server.
@@ -166,9 +175,10 @@ RPCResponse wiscAFSClient::CreateDir(const std::string& dirname, const int mode)
    Status status = stub_->CreateDir(&context, request, &reply);
    write(fd, "CreateDir Passed\n", strlen("CreateDir Passed\n"));
    std::cout << status.ok();
+   std::cout<<"This is the start" << std::endl;
    // Act upon its status.
    if (status.ok()) {
-       write(fd, "Yay Open\n", strlen("Yay Open\n"));
+       std::cout << " I am open" << reply.data(); 
        return reply;
    } else {
 
@@ -182,7 +192,6 @@ RPCResponse wiscAFSClient::CreateDir(const std::string& dirname, const int mode)
 RPCResponse wiscAFSClient::OpenDir(const std::string& dirname, const int mode) {
     RPCRequest request;
     request.set_filename(dirname);
-    request.set_path(dirname);
 
     // Container for the data we expect from the server.
     RPCResponse reply;
@@ -203,6 +212,34 @@ RPCResponse wiscAFSClient::OpenDir(const std::string& dirname, const int mode) {
         reply.set_status(-1);
         return reply;
     }
+}
+
+int wiscAFSClient::ReadDir(const std::string& p, void *buf, fuse_fill_dir_t filler) {
+    RPCRequest request;
+    std::cout << "This is READDIR" << std::endl;
+    std::cout << p << std::endl;
+    request.set_filename(p);
+    RPCDirReply reply;
+    dirent de;
+    reply.set_error(-1);
+    ClientContext context;
+    std::unique_ptr<ClientReader<RPCDirReply>> reader(stub_->ReadDir(&context, request));
+    while(reader->Read(&reply)){
+        struct stat st;
+        memset(&st, 0, sizeof(st));
+
+        de.d_ino = reply.dino();
+        strcpy(de.d_name, reply.dname().c_str());
+        de.d_type = reply.dtype();
+
+        st.st_ino = de.d_ino;
+        st.st_mode = de.d_type << 12;
+        std::cout << de.d_ino << " ANBC " << de.d_type << " bhadbj " << st.st_ino << std::endl;
+        if (filler(buf, de.d_name, &st, 0))
+            break;
+    }
+    Status status = reader->Finish();
+    return -status.error_code();
 }
 
 RPCResponse wiscAFSClient::RemoveDir (const std::string& dirname) {
@@ -227,7 +264,7 @@ RPCResponse wiscAFSClient::RemoveDir (const std::string& dirname) {
     } else {
         std::cout << status.error_code() << ": " << status.error_message()
             << std::endl;
-        reply.set_status(-1);
+        reply.set_status(status.error_code());
         return reply;
     }
 }

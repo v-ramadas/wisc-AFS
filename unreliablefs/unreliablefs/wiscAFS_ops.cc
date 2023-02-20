@@ -140,27 +140,8 @@ int wiscAFS_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi)
 {
     //TODO: For now just copied original, change later
-
-    DIR *dp = opendir(path);
-    if (dp == NULL) {
-	return -errno;
-    }
-    struct dirent *de;
-
-    (void) offset;
-    (void) fi;
-
-    while ((de = readdir(dp)) != NULL) {
-        struct stat st;
-        memset(&st, 0, sizeof(st));
-        st.st_ino = de->d_ino;
-        st.st_mode = de->d_type << 12;
-        if (filler(buf, de->d_name, &st, 0))
-            break;
-    }
-    closedir(dp);
-
-    return 0;
+    int res = afsClient->ReadDir(path, buf, filler);
+    return res;
 }
 
 int wiscAFS_create(const char *path, mode_t mode,

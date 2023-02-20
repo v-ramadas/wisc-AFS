@@ -10,7 +10,7 @@
 #include "cache/ClientCache.h"
 #include <grpcpp/grpcpp.h>
 #include "wiscAFS.grpc.pb.h"
-
+#include<fuse.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +21,7 @@ using wiscAFS::AFSController;
 using wiscAFS::RPCResponse;
 using wiscAFS::RPCRequest;
 using wiscAFS::FileInfo;
+using wiscAFS::RPCDirReply;
 
 class wiscAFSClient {
 
@@ -43,6 +44,8 @@ class wiscAFSClient {
         int ReadFile(const std::string& filename);
 
         int WriteFile(const std::string& filename);
+
+        int ReadDir(const std::string& p, void *buf, fuse_fill_dir_t filler);
 
         // Data we are sending to the server.
         RPCResponse DeleteFile(const std::string& filename);
