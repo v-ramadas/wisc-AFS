@@ -23,16 +23,19 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
 
    // The actual RPC.
    write(flog, "WiscAFSClint:: Calling OpenFile Stub\n", strlen("WiscAFSClint:: Calling OpenFile Stub\n"));
+
+   // The actual RPC.
    Status status = stub_->OpenFile(&context, request, &reply);
    // Act upon its status.
    if (status.ok()) {
        write(flog, "Received status ok\n", strlen("Received status ok\n"));
        std::cout << "Client: Reply status " << reply.status() << std::endl;
        std::string local_path = (client_path + std::to_string(reply.fileinfo().st_ino()) + ".tmp").c_str();
-       int fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
+       int fileDescriptor = open(local_path.c_str(),  flags, 0644);
        if (fileDescriptor < 0) {
            std::cout << "Cannot open temp file " << local_path << std::endl;
        }
+
        if (fileDescriptor != -1) {
            std::cout << "Client: OPEN: Reply data received at client = " << reply.data() << std::endl;
            ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
@@ -43,13 +46,15 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
            fileatts.setFileInfo(&reply.fileinfo());
            ClientCacheValue ccv(fileatts, false, fileDescriptor);
            diskCache.addCacheValue(filename, ccv);
-       }
-       return fileDescriptor;
-   } 
+           } else {
+            write(flog, "Received status not ok\n", strlen("Received status ok\n"));
+            return fileDescriptor;
+            }
+     }
    else {
        write(flog, "Received status not ok\n", strlen("Received status ok\n"));
        return -1;
-   } 
+   }
    //}
    /*else{
        //ALREADY IN CACHE

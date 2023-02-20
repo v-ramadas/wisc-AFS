@@ -50,33 +50,32 @@ int main(int argc, char** argv) {
             grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
     std::string filename("a.txt");
     std::string dirname("dir1");
-    std::string path("/users/vramadas/a.txt");
+    std::string path1("/users/vramadas/test.txt");
+    std::string path2("/users/vramadas/delete.txt");
     std::string data("asdafgdf\nssfdlkjgdgklfg\n");
-    int flags = O_CREAT| O_RDONLY;
+    int flags = O_RDONLY | O_APPEND;
     int mode = S_IRWXU;
     int dirmode = 700;
     std::cout << "Sending OpenFile\n" ;
-    int reply = afsClient.OpenFile(path, flags);
+    int reply = afsClient.OpenFile(path1, flags);
     std::cout << "Reply = " << reply << std::endl;
-//    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
-    /*std::cout << "Sending CreateFile\n" ;
-      reply = afsClient.CreateFile(filename, path, mode);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+    std::cout << "Sending CreateFile\n" ;
+      reply = afsClient.OpenFile(path2, O_CREAT);
+      std::cout << "Response recieved : " << reply << std::endl;
 
       std::cout << "Sending GetAttr\n" ;
-      reply = afsClient.GetAttr(filename, path);
-      std::cout << "Data recieved : " << reply.rpcattr().filesize() << std::endl;
+      RPCResponse response  = afsClient.GetAttr(path1);
 
+    std::cout << " FileAttr : " << response.fileinfo().st_size() <<  " : " << response.fileinfo().st_ino() << " : " << response.fileinfo().st_atim() << "\n";
       std::cout << "Sending CloseFile\n" ;
-      reply = afsClient.CloseFile(filename, path, data);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+      reply = afsClient.CloseFile(path1);
+      std::cout << "Response recieved : " << reply << std::endl;
 
       std::cout << "Sending DeleteFile\n" ;
-      reply = afsClient.DeleteFile(filename, path);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+      afsClient.DeleteFile(path2);
 
-      std::cout << "Sending CreateDir\n" ;
+      /*std::cout << "Sending CreateDir\n" ;
       reply = afsClient.CreateDir(dirname, path, dirmode);
       std::cout << "Response recieved : " << reply.status() << std::endl;
 

@@ -153,7 +153,7 @@ class DiskCache {
             for (auto it = cache.begin(); it != cache.end(); it++) {
                 std::string key = it->first;
                 ClientCacheValue value= it->second;
-                cache_file << key << ":" << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDescriptor <<":"<< value.fileInfo.st_dev << ":" << value.fileInfo.st_ino<<":"<<value.fileInfo.st_mode<<":"<<value.fileInfo.st_nlink<<":"<<value.fileInfo.st_uid<<":"<<value.fileInfo.st_gid<<":"<<value.fileInfo.st_rdev<<":"<<value.fileInfo.st_size<<":"<<value.fileInfo.st_blksize<<":" << value.fileInfo.st_blocks<<":"<<value.fileInfo.st_atim << ":" << value.fileInfo.st_mtim << ":" <<value.fileInfo.st_ctim << ":" <<std::endl;
+                cache_file << key << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDescriptor <<":"<< value.fileInfo.st_dev << ":" << value.fileInfo.st_ino<<":"<<value.fileInfo.st_mode<<":"<<value.fileInfo.st_nlink<<":"<<value.fileInfo.st_uid<<":"<<value.fileInfo.st_gid<<":"<<value.fileInfo.st_rdev<<":"<<value.fileInfo.st_size<<":"<<value.fileInfo.st_blksize<<":" << value.fileInfo.st_blocks<<":"<<value.fileInfo.st_atim << ":" << value.fileInfo.st_mtim << ":" <<value.fileInfo.st_ctim << ":" <<std::endl;
             }
             cache_file.close();
         }
