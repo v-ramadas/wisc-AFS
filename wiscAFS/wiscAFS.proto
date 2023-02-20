@@ -77,7 +77,8 @@ message Statfs {
 
 message RPCResponse {
   int32 status = 1;
-  string data = 2;
+  int32 error = 2;
+  string data = 3;
   optional FileInfo fileInfo = 4;
   optional Statfs statfs = 5;
 }

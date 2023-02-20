@@ -256,6 +256,24 @@ RPCResponse wiscAFSClient::GetAttr(const std::string& filename) {
    }
  
 }
+
+RPCResponse wiscAFSClient::Statfs(const std::string& filename) {
+   RPCRequest request;
+   request.set_filename(filename);
+
+   RPCResponse reply;
+
+   ClientContext context;
+
+   Status status = stub_->StatFS(&context, request, &reply);
+
+   if (status.ok()) {
+      return reply;
+   } else {
+      reply.set_status(-status.error_code());
+      return reply;
+   }
+}
 #ifdef __cplusplus
 }
 #endif

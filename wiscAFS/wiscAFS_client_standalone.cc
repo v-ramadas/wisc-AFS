@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
     std::string dirname("dir1");
     std::string path1("/users/vramadas/test.txt");
     std::string path2("/users/vramadas/delete.txt");
+    std::string path3("/tmp");
     std::string data("asdafgdf\nssfdlkjgdgklfg\n");
     int flags = O_RDONLY | O_APPEND;
     int mode = S_IRWXU;
@@ -75,6 +76,9 @@ int main(int argc, char** argv) {
       std::cout << "Sending DeleteFile\n" ;
       afsClient.DeleteFile(path2);
 
+      std::cout << "Sending StatFS\n";
+      RPCResponse statfs_res = afsClient.Statfs(path3);
+      std::cout << "Response recieved : " << statfs_res.statfs().f_type();
       /*std::cout << "Sending CreateDir\n" ;
       reply = afsClient.CreateDir(dirname, path, dirmode);
       std::cout << "Response recieved : " << reply.status() << std::endl;
