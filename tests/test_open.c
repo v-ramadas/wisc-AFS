@@ -2,22 +2,43 @@
 #include<unistd.h>
 #include<fcntl.h>
 #include<stdlib.h>
+#include<sys/stat.h>
 int main()
 {
-    int fd = open("/tmp/fs/b.txt", O_RDWR);
+    int fd = open("/tmp/fs/b.txt", O_CREAT|O_RDWR|O_TRUNC, 0777);
     char *c = (char*)calloc (100, sizeof(char));
     if (fd == -1) {
         printf("ERROR Could not open file\n");
     }
     else {
         printf("Received fd = %d\n", fd);
-        int sz = read (fd, c, 5);
-        printf("sz = %d\n", sz);
+        int sz = pread (fd, c, 5, 0);
+        printf("read sz = %d\n", sz);
         c[sz] = '\0';
         printf("Read - %s\n", c);
-        return 0;
+        sz = pwrite(fd, "22222", 5, 0);
+        printf("write sz = %d\n", sz);
+        sz = pwrite(fd, "33333", 5, 5);
+        printf("write sz = %d\n", sz);
+
+        struct stat buffer;
+        int status = lstat("/tmp/fs/b.txt", &buffer);
+        printf("Returned lstat, access time = %ld, modification time = %ld\n ", buffer.st_atime, buffer.st_mtime);
+
+        sz = pwrite(fd, "44444", 5, 10);
+        printf("write sz = %d\n", sz);
+
+        status = lstat("/tmp/fs/b.txt", &buffer);
+        printf("Returned lstat after new write, access time = %ld, modification time = %ld\n ", buffer.st_atime, buffer.st_mtime);
+
+        close(fd);
+        printf("Closed file\n");
+
+        //status = unlink("/tmp/fs/b.txt");
+        //printf("Unlink - status after unlink call = %d\n", status);
+
     }
 
-    close(fd);
+
 
 }

@@ -102,7 +102,7 @@ class ClientCacheValue {
 
 class DiskCache {
     
-    const std::string CACHE_FILE =  "cache_metadata.txt";
+    const std::string CACHE_FILE =  "/tmp/afs/cache_metadata.txt";
     std::map<std::string, ClientCacheValue> cache;
 
     public:
@@ -148,14 +148,26 @@ class DiskCache {
     }
 
     void saveCache() {
-        std::ofstream cache_file(CACHE_FILE);
-        if (cache_file) {
-            for (auto it = cache.begin(); it != cache.end(); it++) {
-                std::string key = it->first;
-                ClientCacheValue value= it->second;
-                cache_file << key << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDescriptor <<":"<< value.fileInfo.st_dev << ":" << value.fileInfo.st_ino<<":"<<value.fileInfo.st_mode<<":"<<value.fileInfo.st_nlink<<":"<<value.fileInfo.st_uid<<":"<<value.fileInfo.st_gid<<":"<<value.fileInfo.st_rdev<<":"<<value.fileInfo.st_size<<":"<<value.fileInfo.st_blksize<<":" << value.fileInfo.st_blocks<<":"<<value.fileInfo.st_atim << ":" << value.fileInfo.st_mtim << ":" <<value.fileInfo.st_ctim << ":" <<std::endl;
+        std::ofstream cache_file;
+        if (cache.empty()){
+            std::cout<< "Cache empty, just truncating the file\n";
+            cache_file.open(CACHE_FILE, std::ofstream::out | std::ofstream::trunc);
+        }
+        else{
+            cache_file.open(CACHE_FILE);
+            if (cache_file.is_open()) {
+                std::cout << "ClientCache: File open success\n";
+                for (auto it = cache.begin(); it != cache.end(); it++) {
+                    std::cout << "ClientCache: Inside iterator\n";
+                    std::string key = it->first;
+                    ClientCacheValue value= it->second;
+                    cache_file << key << ":" << (value.isDirty ? 1 : 0) << ":" << value.fileDescriptor <<":"<< value.fileInfo.st_dev << ":" << value.fileInfo.st_ino<<":"<<value.fileInfo.st_mode<<":"<<value.fileInfo.st_nlink<<":"<<value.fileInfo.st_uid<<":"<<value.fileInfo.st_gid<<":"<<value.fileInfo.st_rdev<<":"<<value.fileInfo.st_size<<":"<<value.fileInfo.st_blksize<<":" << value.fileInfo.st_blocks<<":"<<value.fileInfo.st_atim << ":" << value.fileInfo.st_mtim << ":" <<value.fileInfo.st_ctim << ":" <<std::endl;
+                }
+                cache_file.close();
             }
-            cache_file.close();
+            else{
+                std::cout << "ERROR:  Couldn't open cache file\n";
+            }
         }
         
     }
