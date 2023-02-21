@@ -46,8 +46,9 @@ message RPCRequest {
   string path = 2;
   int32 mode = 3;
   int32 flags = 4;
-  string data = 5;
+  bytes data = 5;
   int32 fileDescriptor = 6;
+  uint64 fileSize = 7;
 }
 
 message FileInfo {
@@ -84,7 +85,7 @@ message Statfs {
 message RPCResponse {
   int32 status = 1;
   int32 error = 2;
-  string data = 3;
+  bytes data = 3;
   optional FileInfo fileInfo = 4;
   optional Statfs statfs = 5;
 }

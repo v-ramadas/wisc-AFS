@@ -88,21 +88,12 @@ int wiscAFS_rmdir(const char* path)
 int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 {
     std::string s_path = path;
-    char slog[1000];
-    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
-    //fprintf(stdout, "Here\n");
-    write(fd, "New File!\n", strlen("New File\n!"));
     printf("wiscOPS:Open: Sending openFile to client\n");
     int ret = afsClient->OpenFile(s_path, fi->flags);
     if (ret == -1) {
-        //fprintf(stdout, "Sorry!");
-        write(fd, "Sorry!\n", strlen("Sorry\n!"));
         return -errno;
     }
     printf("wiscOPS:Open: In wisAFS_open Ret = %d\n", ret);
-    sprintf(slog, "In wisAFS_open Ret = %d\n", ret);
-    write(fd, slog, strlen(slog));
-//    write(fd, ret.data().c_str(), strlen(ret.data().c_str()));
 
     /*ret2 = open(path, fi->flags);
     if (ret2 == -1) {
@@ -114,16 +105,13 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 }
 
 int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
+    fsync(fi->fh);
     close(fi->fh);
     std::string s_path(path);
-    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
     int ret = afsClient->CloseFile(s_path);
     if (ret == -1) {
-        write(fd, "Release Failed\n", strlen("Release Failed\n"));
         return -errno;
     }
-    write(fd, "Release Passed\n", strlen("Release Passed\n"));
-    close(fd);
     return 0;
 }
 int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
@@ -245,21 +233,12 @@ int wiscAFS_create(const char *path, mode_t mode,
                       struct fuse_file_info *fi)
 {
     std::string s_path = path;
-    char slog[1000];
-    int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
-    //fprintf(stdout, "Here\n");
-    write(fd, "New File!\n", strlen("New File\n!"));
     printf("wiscOPS:Open: Sending openFile to client\n");
-    int ret = afsClient->OpenFile(s_path, fi->flags);
+    int ret = afsClient->CreateFile(s_path, fi->flags, mode);
     if (ret == -1) {
-        //fprintf(stdout, "Sorry!");
-        write(fd, "Sorry!\n", strlen("Sorry\n!"));
         return -errno;
     }
     printf("wiscOPS:Open: In wisAFS_open Ret = %d\n", ret);
-    sprintf(slog, "In wisAFS_open Ret = %d\n", ret);
-    write(fd, slog, strlen(slog));
-//    write(fd, ret.data().c_str(), strlen(ret.data().c_str()));
 
     /*ret2 = open(path, fi->flags);
     if (ret2 == -1) {

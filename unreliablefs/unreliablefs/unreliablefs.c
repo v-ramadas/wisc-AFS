@@ -41,7 +41,7 @@ static struct fuse_operations unreliable_ops = {
     .fsync       = unreliable_fsync,
 #ifdef HAVE_XATTR
     .setxattr    = unreliable_setxattr,
-    .getxattr    = wiscAFS_getxattr,
+    .getxattr    = unreliable_getxattr,
     .listxattr   = unreliable_listxattr,
     .removexattr = unreliable_removexattr,
 #endif /* HAVE_XATTR */

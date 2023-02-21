@@ -33,6 +33,7 @@ class wiscAFSClient {
                 diskCache.loadCache();
             }
 
+        void setFileInfo(FileInfo*, struct stat);
         // Assembles the client's payload, sends it and presents the response back
         // from the server.
         int OpenFile(const std::string& filename, const int flags);
@@ -44,6 +45,8 @@ class wiscAFSClient {
         int ReadFile(const std::string& filename);
 
         int WriteFile(const std::string& filename);
+
+        int CreateFile(const std::string& filename, const int flags, const int mode);
 
         int ReadDir(const std::string& p, void *buf, fuse_fill_dir_t filler);
 
