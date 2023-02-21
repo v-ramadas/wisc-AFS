@@ -138,15 +138,40 @@ class wiscAFSImpl final : public AFSController::Service {
     }
 
     Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
-        std::cout << "Hellow";
-        std::string newContent = request->data();
+        std::string newContent = request->data().c_str();
         std::string fileName = request->filename();
-        std::string curfileName = (fileName).c_str();
-        std::string tmp_filename = (fileName + ".tmp").c_str();
+        std::string curFileName = (fileName).c_str();
+        std::string tmpFileName = (fileName + ".tmp").c_str();
+        std::cout << " Inside CloseFile!" << std::endl;
+        std::cout << " newContent = " << newContent << std::endl;
+        std::cout << "curFileName =  " <<  curFileName << std::endl;
+        std::cout << "tmpFileName =  " << tmpFileName << std::endl;
         // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
-        std::cout << "wiscServer: Entering CloseFile" << std::endl;
+        int tfd = open(tmpFileName.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
+        if (tfd == -1) {
+            std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
+        }
+        int sz = write(tfd, newContent.c_str(), strlen(newContent.c_str()));
+        if(sz < 0) {
+            std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
+        }
+        close(tfd);
+        int ret = rename (tmpFileName.c_str(), curFileName.c_str());
+        if (ret < 0) {
+            std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status\n";
+            reply->set_status(-1);
+            return Status::OK;
+        }
+        else{
+            std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
+            unlink(tmpFileName.c_str());
+            reply->set_status(0);
+            return Status::OK;
+        }
+
+
         //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
-        int fileDescriptor = request->filedescriptor();
+        /*int fileDescriptor = request->filedescriptor();
         close(fileDescriptor);
         if (fileDescriptor != -1) {
             //TEMP FILE
@@ -178,7 +203,7 @@ class wiscAFSImpl final : public AFSController::Service {
         }
         reply->set_error(errno);
         std::cout << "wiscServer: Exiting CloseFile\n";
-        return Status::OK;
+        return Status::OK;*/
     }
 
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
@@ -253,7 +278,7 @@ class wiscAFSImpl final : public AFSController::Service {
     Status RemoveDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
         std::cout << "wiscServer: Entering RemoveDir\n";
-        std::string dirName = request->data();
+        std::string dirName = request->filename();
         int result = rmdir((dirName).c_str());
         if (result == -1) {
             reply->set_status(-1);
@@ -268,19 +293,20 @@ class wiscAFSImpl final : public AFSController::Service {
 
     Status CreateDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::cout << "wiscServer: Inside CreateDir" << std::endl;
-        std::string dirName = request->data();
+        std::cout << "wiscServer:CreateDir: Inside CreateDir" << std::endl;
+        std::string dirName = request->filename();
         int mode = request->mode();
-        reply->set_data("Hello + " + dirName);
+        std::cout << "mkdir with dirname = " << dirName << "mode = " << mode << std::endl;
         int result = mkdir((dirName).c_str(), mode);
         if (result == -1) {
-            reply->set_status(errno);
+            std::cout << "wiscServer:CreateDir: mkdir failed" << std::endl;
+            reply->set_error(errno);
             return Status::OK;
         } else {
             reply->set_status(1);
         }
         reply->set_error(errno);
-        std::cout << "wiscServer: Exiting RemoveDir\n";
+        std::cout << "wiscServer:CreateDir: Exiting RemoveDir\n";
         return Status::OK;
     }
 
@@ -333,21 +359,23 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "wiscServer: Inside GetAttr\n";
         std::string filename = request->filename();
         FileInfo* fileInfo = new FileInfo();// =  reply->mutable_data();
-        int file_descriptor = open((filename).c_str(), O_RDONLY);
-        if (file_descriptor == -1) {
-            //The file could not be opened
-            reply->set_status(-1);
-            return Status::OK;
-        }
+        //int file_descriptor = open((filename).c_str(), O_RDONLY);
+        //if (file_descriptor == -1) {
+        //    //The file could not be opened
+        //    reply->set_status(-1);
+        //    return Status::OK;
+        //}
 
         struct stat file_info;
-        if (fstat(file_descriptor, &file_info) == -1) {
+        if (lstat(filename.c_str(), &file_info) == -1) {
             //The file information could not be retrieved.
+            std::cout << "wiscServer: lstat failed returning -1\n";
             reply->set_status(-1);
+            reply->set_error(errno);
             return Status::OK;
         } else {
             setFileInfo(fileInfo, file_info);
-            close(file_descriptor);
+            //close(file_descriptor);
             reply->set_allocated_fileinfo(fileInfo);
             reply->set_status(1);
         }
@@ -379,7 +407,7 @@ class wiscAFSImpl final : public AFSController::Service {
 
 
 void RunServer() {
-    std::string server_address("10.10.1.2:50052");
+    std::string server_address("10.10.1.2:50051");
     wiscAFSImpl service;
 
     grpc::EnableDefaultHealthCheckService(true);
