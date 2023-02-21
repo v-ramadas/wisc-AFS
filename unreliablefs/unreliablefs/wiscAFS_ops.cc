@@ -113,7 +113,7 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
     return 0;
 }
 
-int wiscAFS_release(const char * path, struct fuse_file_info *fi) {
+int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
     close(fi->fh);
     std::string s_path(path);
     int fd = open("/users/vramadas/test.log", O_CREAT|O_RDWR|O_APPEND, 0777);
