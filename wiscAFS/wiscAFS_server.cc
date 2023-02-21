@@ -80,7 +80,6 @@ class wiscAFSImpl final : public AFSController::Service {
     }
 
     Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
-        std::cout << "Hellow";
         // Error handle the path and filename
         std::string filename = request->filename();
         int flags = request->flags();
@@ -107,7 +106,7 @@ class wiscAFSImpl final : public AFSController::Service {
             int sz = lseek(fd, 0L, SEEK_END);
             lseek(fd, 0L, SEEK_SET);
             char *buffer = new char[sz];
-            std::cout << "size = " << sz << std::endl;
+            std::cout << "wiscServer:OpenFile: size = " << sz << std::endl;
             if(sz == 0){
                 reply->set_data("");
             }
@@ -138,10 +137,13 @@ class wiscAFSImpl final : public AFSController::Service {
     }
 
     Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
-        std::string newContent = request->data().c_str();
+        //void *newContent; 
+        //newContent = (void*)malloc(1025);
+        //memcpy(newContent, (void*)request->data(), 1024);
+        std::string newContent = request->data();
         std::string fileName = request->filename();
-        std::string curFileName = (fileName).c_str();
-        std::string tmpFileName = (fileName + ".tmp").c_str();
+        std::string curFileName = (fileName);
+        std::string tmpFileName = (fileName + ".tmp");
         std::cout << " Inside CloseFile!" << std::endl;
         std::cout << " newContent = " << newContent << std::endl;
         std::cout << "curFileName =  " <<  curFileName << std::endl;
@@ -151,7 +153,10 @@ class wiscAFSImpl final : public AFSController::Service {
         if (tfd == -1) {
             std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
         }
-        int sz = write(tfd, newContent.c_str(), strlen(newContent.c_str()));
+        unsigned long int fileSize = request->filesize();
+        std::cout << "wiscSerer: CloseFile: FileSize = " << fileSize << std::endl;
+        int sz = write(tfd, newContent.c_str(), fileSize);
+        //std::cout << "wiscServer:CloseFIle: newContent.strlen() == " << strlen(newContent.c_str());
         if(sz < 0) {
             std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
         }
@@ -207,25 +212,27 @@ class wiscAFSImpl final : public AFSController::Service {
     }
 
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
-     Status CreateFile(ServerContext* context, const RPCRequest* request,
-             RPCResponse* reply) override {
+     Status CreateFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        // Error handle the path and filename
         std::string filename = request->filename();
         int flags = request->flags();
+        int mode = request->mode();
         std::ifstream f(filename);
         struct stat file_info;
 
-        std::cout << "wiscServer: Entering CreateFile\n";
-        int fd = open((filename).c_str(), flags);
-        std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
+        std::cout << "WiscServer: Entering CreateFile\n";
+
+        int fd = open((filename).c_str(), flags, mode);
+        std::cout << "wiscServer:CreateFilePrinting filename,  fd, flags, mode " << filename << ", " << fd << ", " << flags << ", " <<  mode << std::endl;
         if (fd < 0)
-            std::cout << "Cannot create file " << filename << std::endl;
+            std::cout << "ERROR: Cannot open file " << filename << std::endl;
+        FileInfo *fileInfo = new FileInfo;
         if (fd != -1) {
-            FileInfo* fileInfo = new FileInfo;
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
                 reply->set_error(errno);
-                std::cout << "wiscServer: Exiting CreateFile\n";
+                std::cout << "WiscServer:CreateFile Exiting OpenFile\n";
                 return Status::OK;
             }
 
@@ -233,7 +240,7 @@ class wiscAFSImpl final : public AFSController::Service {
             int sz = lseek(fd, 0L, SEEK_END);
             lseek(fd, 0L, SEEK_SET);
             char *buffer = new char[sz];
-            std::cout << "size = " << sz << std::endl;
+            std::cout << "wiscServer:CreateFile: size = " << sz << std::endl;
             if(sz == 0){
                 reply->set_data("");
             }
@@ -241,37 +248,25 @@ class wiscAFSImpl final : public AFSController::Service {
                 int err = read(fd, buffer, sz);
                 reply->set_data(buffer);
             }
-
-            setFileInfo(fileInfo, file_info);
             //std::cout << sz << "HSdjsdbj" << std::endl;
            // std::string obuffer = buffer;
 
+            //Set all attrs
+            setFileInfo(fileInfo, file_info);
+            //Populate reply
+            //reply->set_data(obuffer);
             reply->set_allocated_fileinfo(fileInfo);
+            reply->set_status(1);
             close(fd);
 
         }
         else{
             reply->set_status(-1);
         }
-        reply->set_error(errno);
-        std::cout << "wiscServer: Exiting CreateFile\n";
-        return Status::OK;
-     }
 
-    Status DeleteFile(ServerContext* context, const RPCRequest* request,
-            RPCResponse* reply) override {
-        std::cout << "wiscServer: Entering DeleteFile!\n";
-        std::string fileName = request->filename();
-        int unlinkResult = unlink((fileName).c_str());
-        if (unlinkResult != -1) {
-            std::cout << "Delete was done\n";
-            reply->set_status(-1);
-        } else {
-            std::cout << " Delete Failed with error " << errno << "\n";
-            reply->set_status(1);
-        }
         reply->set_error(errno);
-        std::cout << "wiscServer: Exiting DeleteFile\n";
+        std::cout << "WiscServer:CreateFile: Exiting OpenFile\n";
+
         return Status::OK;
     }
 
@@ -424,7 +419,6 @@ void RunServer() {
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
-    std::cout << "Hellow";
     server->Wait();
 }
 
