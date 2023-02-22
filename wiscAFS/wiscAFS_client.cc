@@ -632,6 +632,7 @@ RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::stri
    ClientContext context;
 
    if (ccv == nullptr) {
+        std::cout << "wiscClient:GetXAttr : Making stub call\n";
        // The actual RPC.
         Status status = stub_->GetXAttr(&context, request, &reply);
         // Act upon its status.
@@ -640,10 +641,14 @@ RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::stri
         }
     } else {
         std::string local_path = (client_path + std::to_string(ccv->fileInfo.st_ino) + ".tmp").c_str();
-        int size = getxattr(local_path.c_str(), name.c_str(), value, size);
-        reply.set_xattr_value(value);
-        reply.set_xattr_size(size);
+        std::cout << "wiscClient:GetXAttr : Making local call to " << local_path <<"\n";
+        int attrSize = getxattr(local_path.c_str(), name.c_str(), value, size);
+        std::string s_value(value);
+        reply.set_xattr_value(s_value);
+        reply.set_xattr_size(attrSize);
+        std::cout << " Size: " << attrSize << "Value : " << s_value << std::endl; 
         reply.set_status(0);
+        reply.set_error(errno);
     }
 
    std::cout << "wiscClient:GetXAttr: Exiting GetXAttr\n";
