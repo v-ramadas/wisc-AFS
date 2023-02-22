@@ -61,7 +61,7 @@ class wiscAFSClient {
 
         RPCResponse GetAttr(const std::string& filename);
 
-        RPCResponse GetXAttr(const std::string& filename, const std::string& name);
+        RPCResponse GetXAttr(const std::string& filename, const std::string& name, char* value, size_t len);
 
         RPCResponse Statfs(const std::string& filename);
 

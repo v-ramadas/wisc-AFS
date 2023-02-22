@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <fuse.h>
 #include <errno.h>
+#include <sys/xattr.h>
 
 using grpc::ClientContext;
 using grpc::Status;
@@ -614,10 +615,10 @@ RPCResponse wiscAFSClient::GetAttr(const std::string& filename) {
  
 }
 
-RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::string& name) {
+RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::string& name, char* value, size_t size) {
    // Data we are sending to the server.
    std::cout << "wiscClient:GetXAttr: Entering GetXAttr\n";
-//   ClientCacheValue *ccv = diskCache.getCacheValue(filename);
+   ClientCacheValue *ccv = diskCache.getCacheValue(filename);
    RPCRequest request;
    request.set_filename(filename);
    request.set_xattr(name);
@@ -629,24 +630,21 @@ RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::stri
    // the server and/or tweak certain RPC behaviors.
    ClientContext context;
 
-//   if (ccv == nullptr) {
+   if (ccv == nullptr) {
        // The actual RPC.
         Status status = stub_->GetXAttr(&context, request, &reply);
         // Act upon its status.
         if (!status.ok()) {
             reply.set_status(-status.error_code());
         }
-//    } else {
-//        std::string local_path = (client_path + std::to_string(ccv->fileInfo.st_ino) + ".tmp").c_str();
-//        struct stat buf;
-//        lstat(local_path.c_str(), &buf);
-//        FileInfo* fileInfo = new FileInfo();
-//        setFileInfo(fileInfo, buf);
-//        reply.set_allocated_fileinfo(fileInfo);
-//    }
+    } else {
+        std::string local_path = (client_path + std::to_string(ccv->fileInfo.st_ino) + ".tmp").c_str();
+        int size = getxattr(local_path.c_str(), name.c_str(), value, size);
+        reply.set_xattr(value);
+    }
 
 
-   std::cout << "wiscClient:GetAttr: Exiting GetAttr\n";
+   std::cout << "wiscClient:GetXAttr: Exiting GetXAttr\n";
    errno = reply.error();
    return reply;
  

@@ -46,7 +46,7 @@ int wiscAFS_getxattr(const char *path, const char *name, char *value, size_t siz
     std::string s_path = path;
     std::string s_name = name;
     printf("wiscAFS_getattr: Sending afsClient request\n");
-    RPCResponse ret = afsClient->GetXAttr(s_path, name);
+    RPCResponse ret = afsClient->GetXAttr(s_path, s_name, value, size);
     memcpy(value, ret.xattr().c_str() ,ret.xattr().size());
     if (ret.status() == -1) {
     	return 0;
