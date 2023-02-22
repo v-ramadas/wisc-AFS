@@ -32,6 +32,7 @@ service AFSController {
   rpc OpenDir (RPCRequest) returns (RPCResponse) {}
   rpc ReadDir (RPCRequest) returns (stream RPCDirReply) {}
   rpc GetXAttr (RPCRequest) returns (RPCResponse) {}
+  rpc AccessFile (RPCRequest) returns (RPCResponse) {}
 }
 
 message RPCDirReply{

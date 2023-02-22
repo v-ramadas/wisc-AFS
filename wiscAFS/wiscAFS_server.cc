@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/vfs.h>
+#include <sys/xattr.h>
 #include <dirent.h>
 
 using grpc::Server;
@@ -164,14 +165,31 @@ class wiscAFSImpl final : public AFSController::Service {
         setFileInfo(fileInfo, file_info);
         reply.set_allocated_fileinfo(fileInfo);
 
+        int sz = lseek(fd, 0L, SEEK_END);
+        lseek(fd, 0L, SEEK_SET);
+        std::cout << "wiscServer:OpenFile: total size = " << sz << std::endl;
+
         while(1){
-            int err = read(fd, buf, 1024);
+            int err;
+            if (sz == 0){
+                reply.set_data("");
+                writer->Write(reply);
+                break;
+            }
+            if (sz < 1024){
+                err = read(fd, buf, sz);
+            }
+            else{
+                err = read(fd, buf, 1024);
+            }
+            std::cout << "wiscServer: OpenFile: Sending err, data " << err << ", " << buf << std::endl;
             if(err == 0){
                 break;
             }
 
             if(err == -1){
-                std::cout << "Cannot read file file " << filename << std::endl;
+                std::cout << "ERROR: wiscServer: OpenFile:Cannot read file file " << filename << std::endl;
+                break;
             }
 
             reply.set_data(buf);
@@ -429,6 +447,20 @@ class wiscAFSImpl final : public AFSController::Service {
     //     return Status::OK;
     // }
 
+    Status AccessFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+     
+        std::string filename = request->filename();
+        int ret = access(filename.c_str(), request->mode());
+        if (ret == -1){
+            std::cout <<"wiscServer:AccessFile: Access issue with the file, retuning errno and -1\n";
+            reply->set_status(-1);
+            reply->set_error(errno);
+            return Status::OK;
+        }
+        reply->set_status(1);
+        return Status::OK;
+    }
+
     Status ReadDir(ServerContext* context, const RPCRequest* request,
 		  ServerWriter<RPCDirReply>* writer) override {
 
@@ -488,6 +520,29 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "wiscServer: Exiting GetAttr\n";
         return Status::OK;
     }
+
+    Status GetXAttr(ServerContext* context, const RPCRequest* request,
+             RPCResponse* reply) override {
+         std::cout << "wiscServer: Inside GetXAttr\n";
+         std::string filename = request->filename();
+         std::string xattr = request->xattr();
+         //int file_descriptor = open((filename).c_str(), O_RDONLY);
+         //if (file_descriptor == -1) {
+         //    //The file could not be opened
+         //    reply->set_status(-1);
+         //    return Status::OK;
+         //}
+         char buf[1024];
+         int size = getxattr(filename.c_str(), xattr.c_str(), buf, sizeof(buf));
+         if (size < 0) {
+           std::cout << "wiscServer: Exiting GetXAttr\n";
+           return Status(grpc::StatusCode::NOT_FOUND, "File or attribute not found.");
+         }
+         reply->set_xattr(buf, size);
+         std::cout << "wiscServer: Exiting GetXAttr\n";
+         return Status::OK;
+     }
+
 
     Status StatFS(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
         std::cout << "wiscServer: Inside StatFS\n";
