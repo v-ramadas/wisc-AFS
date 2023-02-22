@@ -305,6 +305,23 @@ class wiscAFSImpl final : public AFSController::Service {
         return Status::OK;
     }
 
+    Status DeleteFile(ServerContext* context, const RPCRequest* request,
+            RPCResponse* reply) override {
+        std::cout << "wiscServer:DeleteFile: Inside DeleteFile" << std::endl;
+        std::string filename = request->filename();
+        std::cout << "file with filename = " << filename << std::endl;
+        int result = unlink((filename).c_str());
+        if (result == -1) {
+            std::cout << "wiscServer:DeleteFile: DeleteFile failed" << std::endl;
+            reply->set_error(errno);
+            return Status::OK;
+        } else {
+            reply->set_status(0);
+        }
+        std::cout << "wiscServer:DeleteFile: Exiting DeleteFile\n";
+        return Status::OK;
+    }
+
     // Status OpenDir(ServerContext* context, const RPCRequest* request,
     //         RPCResponse* reply) override {
         
@@ -337,6 +354,7 @@ class wiscAFSImpl final : public AFSController::Service {
 		}
 
 		while((de = readdir(dp)) != NULL){
+            std::cout<< "Directory names seen from the server " << de->d_name;
 		    reply.set_dino(de->d_ino);
 		    reply.set_dname(de->d_name);
 		    reply.set_dtype(de->d_type);
