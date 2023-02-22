@@ -86,6 +86,7 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
 
 int wiscAFSClient::CloseFile(const std::string& filename) {
     // Data we are sending to the server.
+    // DELTE LOCAL FILES POST THIS OP
     ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
     RPCRequest request;
     if(ccv1 == nullptr){
@@ -317,8 +318,8 @@ RPCResponse wiscAFSClient::OpenDir(const std::string& dirname, const int mode) {
         reply.set_status(-1);
     }
     errno = reply.error();
-    return reply;
     std::cout << "wiscClient: Exiting OpenDir\n";
+    return reply;
 }
 
 int wiscAFSClient::ReadDir(const std::string& p, void *buf, fuse_fill_dir_t filler) {
@@ -436,6 +437,8 @@ RPCResponse wiscAFSClient::Statfs(const std::string& filename) {
    return reply;
    std::cout << "wiscClient: Exiting StatFS\n";
 }
+
+
 #ifdef __cplusplus
 }
 #endif

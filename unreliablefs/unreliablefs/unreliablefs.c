@@ -24,8 +24,8 @@ static struct fuse_operations unreliable_ops = {
     .readlink    = unreliable_readlink,
     .mknod       = unreliable_mknod,
     .mkdir       = wiscAFS_mkdir,
-    .unlink      = unreliable_unlink,
-    .rmdir       = unreliable_rmdir,
+    .unlink      = wiscAFS_unlink,
+    .rmdir       = wiscAFS_rmdir,
     .symlink     = unreliable_symlink,
     .rename      = unreliable_rename,
     .link        = unreliable_link,
@@ -45,8 +45,8 @@ static struct fuse_operations unreliable_ops = {
     .listxattr   = unreliable_listxattr,
     .removexattr = unreliable_removexattr,
 #endif /* HAVE_XATTR */
-    .opendir     = unreliable_opendir,
-    .readdir     = unreliable_readdir,
+    .opendir     = wiscAFS_opendir,
+    .readdir     = wiscAFS_readdir,
     .releasedir  = unreliable_releasedir,
     .fsyncdir    = unreliable_fsyncdir,
 
