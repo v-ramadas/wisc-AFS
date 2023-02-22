@@ -51,7 +51,9 @@ message RPCRequest {
   bytes data = 5;
   int32 fileDescriptor = 6;
   uint64 fileSize = 7;
-  optional string xattr = 8;
+  optional string xattr_name = 8;
+  optional string xattr_value = 9;
+  optional int32 xattr_size = 10;
 }
 
 message FileInfo {
@@ -91,5 +93,6 @@ message RPCResponse {
   bytes data = 3;
   optional FileInfo fileInfo = 4;
   optional Statfs statfs = 5;
-  optional bytes xattr = 6;
+  optional string xattr_value = 8;
+  optional int32 xattr_size = 9;
 }

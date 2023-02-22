@@ -525,20 +525,19 @@ class wiscAFSImpl final : public AFSController::Service {
              RPCResponse* reply) override {
          std::cout << "wiscServer: Inside GetXAttr\n";
          std::string filename = request->filename();
-         std::string xattr = request->xattr();
-         //int file_descriptor = open((filename).c_str(), O_RDONLY);
-         //if (file_descriptor == -1) {
-         //    //The file could not be opened
-         //    reply->set_status(-1);
-         //    return Status::OK;
-         //}
-         char buf[1024];
-         int size = getxattr(filename.c_str(), xattr.c_str(), buf, sizeof(buf));
+         std::string xattr_name = request->xattr_name();
+         std::string xattr_value = request->xattr_value();
+         size_t xattr_size = request->xattr_size();
+         char* value = new char[1024];
+         int size = getxattr(filename.c_str(), xattr_name.c_str(), value, xattr_size);
+         std::string s_value = value;
+         reply->set_xattr_value(s_value);
+         reply->set_xattr_size(size);
          if (size < 0) {
            std::cout << "wiscServer: Exiting GetXAttr\n";
            return Status(grpc::StatusCode::NOT_FOUND, "File or attribute not found.");
          }
-         reply->set_xattr(buf, size);
+         reply->set_error(errno);
          std::cout << "wiscServer: Exiting GetXAttr\n";
          return Status::OK;
      }

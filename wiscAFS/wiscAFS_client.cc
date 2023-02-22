@@ -621,7 +621,8 @@ RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::stri
    ClientCacheValue *ccv = diskCache.getCacheValue(filename);
    RPCRequest request;
    request.set_filename(filename);
-   request.set_xattr(name);
+   request.set_xattr_name(name);
+   request.set_xattr_size(size);
 
    // Container for the data we expect from the server.
    RPCResponse reply;
@@ -640,9 +641,10 @@ RPCResponse wiscAFSClient::GetXAttr(const std::string& filename, const std::stri
     } else {
         std::string local_path = (client_path + std::to_string(ccv->fileInfo.st_ino) + ".tmp").c_str();
         int size = getxattr(local_path.c_str(), name.c_str(), value, size);
-        reply.set_xattr(value);
+        reply.set_xattr_value(value);
+        reply.set_xattr_size(size);
+        reply.set_status(0);
     }
-
 
    std::cout << "wiscClient:GetXAttr: Exiting GetXAttr\n";
    errno = reply.error();
