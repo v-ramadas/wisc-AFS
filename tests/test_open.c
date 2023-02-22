@@ -21,6 +21,11 @@ int main()
         sz = pwrite(fd, "33333", 5, 5);
         printf("write sz = %d\n", sz);
 
+        sz = pread (fd, c, 5, 0);
+        printf("read sz = %d\n", sz);
+        c[sz] = '\0';
+        printf("Read - %s\n", c);
+
         struct stat buffer;
         int status = lstat("/tmp/fs/b.txt", &buffer);
         printf("Returned lstat, access time = %ld, modification time = %ld\n ", buffer.st_atime, buffer.st_mtime);

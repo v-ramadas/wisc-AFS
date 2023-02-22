@@ -268,6 +268,18 @@ int wiscAFS_truncate(const char *path, off_t length)
     return 0;
 }
 
+int wiscAFS_access(const char *path, int mode)
+{
+    std::string s_path = path;
+    RPCResponse ret = afsClient->AccessFile(s_path, mode);
+    if (ret.status() == -1) {
+        return -ret.error();
+    }
+    //ret = access(path, mode); 
+    
+    return 0;
+}
+
 
 void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (

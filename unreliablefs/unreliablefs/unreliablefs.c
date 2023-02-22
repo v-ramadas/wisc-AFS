@@ -41,7 +41,7 @@ static struct fuse_operations unreliable_ops = {
     .fsync       = unreliable_fsync,
 #ifdef HAVE_XATTR
     .setxattr    = unreliable_setxattr,
-    .getxattr    = unreliable_getxattr,
+    .getxattr    = wiscAFS_getxattr,
     .listxattr   = unreliable_listxattr,
     .removexattr = unreliable_removexattr,
 #endif /* HAVE_XATTR */
@@ -53,7 +53,7 @@ static struct fuse_operations unreliable_ops = {
     .init        = wiscAFS_init,
     .destroy     = unreliable_destroy,
 
-    .access      = unreliable_access,
+    .access      = wiscAFS_access,
     .create      = wiscAFS_create,
     .lock        = unreliable_lock,
 #if !defined(__OpenBSD__)

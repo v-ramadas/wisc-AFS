@@ -20,6 +20,7 @@ int wiscAFS_create(const char*, mode_t, struct fuse_file_info *);
 void* wiscAFS_init(struct fuse_conn_info*);
 int wiscAFS_getxattr(const char *path, const char *name, char *value, size_t size);
 int wiscAFS_truncate(const char *path, off_t length);
+int wiscAFS_access(const char *path, int mode);
 
 int temp_fn();
 #ifdef __cplusplus

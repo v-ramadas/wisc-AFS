@@ -65,6 +65,8 @@ class wiscAFSClient {
 
         RPCResponse Statfs(const std::string& filename);
 
+        RPCResponse AccessFile(const std::string& filename, const int mode);
+
     private:
         std::unique_ptr<AFSController::Stub> stub_;
 };
