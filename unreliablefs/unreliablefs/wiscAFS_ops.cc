@@ -44,12 +44,14 @@ int wiscAFS_getattr(const char *path, struct stat *buf)
 int wiscAFS_getxattr(const char *path, const char *name, char *value, size_t size)
 {
     std::string s_path = path;
+    std::string s_name = name;
     printf("wiscAFS_getattr: Sending afsClient request\n");
-    RPCResponse ret = afsClient->GetAttr(s_path);
+    RPCResponse ret = afsClient->GetXAttr(s_path, name);
+    memcpy(value, ret.xattr().c_str() ,ret.xattr().size());
     if (ret.status() == -1) {
-    	return -errno;
+    	return 0;
     }
-    return 0;
+    return ret.xattr().size();
 }
 
 int wiscAFS_mkdir(const char *path, mode_t mode)

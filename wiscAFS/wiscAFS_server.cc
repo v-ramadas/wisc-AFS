@@ -44,6 +44,8 @@ using wiscAFS::RPCRequest;
 using wiscAFS::RPCResponse;
 using wiscAFS::FileInfo;
 using wiscAFS::Statfs;
+using grpc::ServerReader;
+using grpc::ServerWriter;
 
 
 // Logic and data behind the server's behavior.
@@ -79,7 +81,7 @@ class wiscAFSImpl final : public AFSController::Service {
         statFS->set_f_flags(info.f_flags);
     }
 
-    Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
+   /* Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
         // Error handle the path and filename
         std::string filename = request->filename();
         int flags = request->flags();
@@ -134,34 +136,160 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "WiscServer: Exiting OpenFile\n";
 
         return Status::OK;
+    }*/
+
+    Status OpenFile(ServerContext* context, const RPCRequest* request,ServerWriter<RPCResponse>* writer) override {
+        // Error handle the path and filename
+        std::string filename = request->filename();
+        int flags = request->flags();
+        std::ifstream f(filename);
+        struct stat file_info;
+        RPCResponse reply;
+
+        std::cout << "WiscServer: Entering OpenFile\n";
+
+        int fd = open((filename).c_str(), flags);
+        std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
+        if (fd < 0)
+            std::cout << "Cannot open file " << filename << std::endl;
+        
+        FileInfo *fileInfo = new FileInfo;
+        char *buf = new char[1024];
+        if (fstat(fd, &file_info) == -1) {
+                reply.set_status(-1);
+                reply.set_error(errno);
+                std::cout << "WiscServer: Exiting OpenFile\n";
+                return Status::OK;
+        }
+        setFileInfo(fileInfo, file_info);
+        reply.set_allocated_fileinfo(fileInfo);
+
+        while(1){
+            int err = read(fd, buf, 1024);
+            if(err == 0){
+                break;
+            }
+
+            if(err == -1){
+                std::cout << "Cannot read file file " << filename << std::endl;
+            }
+
+            reply.set_data(buf);
+            writer->Write(reply);
+        }
+     
+        close(fd);
+        free(buf);
+        std::cout << "WiscServer: Exiting OpenFile\n";
+
+        return Status::OK;
     }
 
-    Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
-        //void *newContent; 
-        //newContent = (void*)malloc(1025);
-        //memcpy(newContent, (void*)request->data(), 1024);
-        std::string newContent = request->data();
-        std::string fileName = request->filename();
-        std::string curFileName = (fileName);
-        std::string tmpFileName = (fileName + ".tmp");
-        std::cout << " Inside CloseFile!" << std::endl;
-        std::cout << " newContent = " << newContent << std::endl;
-        std::cout << "curFileName =  " <<  curFileName << std::endl;
-        std::cout << "tmpFileName =  " << tmpFileName << std::endl;
-        // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
-        int tfd = open(tmpFileName.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
-        if (tfd == -1) {
-            std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
+    // Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+    //     //void *newContent; 
+    //     //newContent = (void*)malloc(1025);
+    //     //memcpy(newContent, (void*)request->data(), 1024);
+    //     std::string newContent = request->data();
+    //     std::string fileName = request->filename();
+    //     std::string curFileName = (fileName);
+    //     std::string tmpFileName = (fileName + ".tmp");
+    //     std::cout << " Inside CloseFile!" << std::endl;
+    //     std::cout << " newContent = " << newContent << std::endl;
+    //     std::cout << "curFileName =  " <<  curFileName << std::endl;
+    //     std::cout << "tmpFileName =  " << tmpFileName << std::endl;
+    //     // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
+    //     int tfd = open(tmpFileName.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
+    //     if (tfd == -1) {
+    //         std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
+    //     }
+    //     unsigned long int fileSize = request->filesize();
+    //     std::cout << "wiscSerer: CloseFile: FileSize = " << fileSize << std::endl;
+    //     int sz = write(tfd, newContent.c_str(), fileSize);
+    //     //std::cout << "wiscServer:CloseFIle: newContent.strlen() == " << strlen(newContent.c_str());
+    //     if(sz < 0) {
+    //         std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
+    //     }
+    //     close(tfd);
+    //     int ret = rename (tmpFileName.c_str(), curFileName.c_str());
+    //     if (ret < 0) {
+    //         std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status\n";
+    //         reply->set_status(-1);
+    //         return Status::OK;
+    //     }
+    //     else{
+    //         std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
+    //         unlink(tmpFileName.c_str());
+    //         reply->set_status(0);
+    //         return Status::OK;
+    //     }
+
+
+    //     //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+    //     /*int fileDescriptor = request->filedescriptor();
+    //     close(fileDescriptor);
+    //     if (fileDescriptor != -1) {
+    //         //TEMP FILE
+    //         ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
+    //         if (writeResult == -1) {
+    //             reply->set_status(-1);
+    //             reply->set_error(errno);
+    //             close(fileDescriptor);
+    //             unlink(tmp_filename.c_str());
+    //             std::cout << "wiscServer: Exiting CloseFile\n";
+    //             return Status::OK;
+    //         }
+    //         int closeResult = close(fileDescriptor);
+    //         if(closeResult == -1){
+    //             reply->set_status(-1);
+    //             reply->set_error(errno);
+    //             std::cout << "wiscServer: Exiting CloseFile\n";
+    //             return Status::OK;
+    //         }
+    //         if (rename(tmp_filename.c_str(), fileName.c_str()) == -1) {
+    //             unlink(tmp_filename.c_str());
+    //             std::cout << "wiscServer: Exiting CloseFile\n";
+    //             return Status::OK;
+    //         }
+    //         reply->set_status(1);
+    //     }
+    //     else{
+    //         reply->set_status(-1);
+    //     }
+    //     reply->set_error(errno);
+    //     std::cout << "wiscServer: Exiting CloseFile\n";
+    //     return Status::OK;*/
+    // }
+
+
+    Status CloseFile(ServerContext* context, ServerReader<RPCRequest>* reader, RPCResponse* reply) override {
+        int fd, res;
+        bool firstReq = true;
+        std::string path, tempPath;
+        RPCRequest request;
+        while (reader->Read(&request)) {
+            if(firstReq){
+                path = request.filename();
+                tempPath = (path + ".tmp");
+                fd = open(tempPath.c_str(), O_CREAT|O_RDWR, 0644);
+                if(fd == -1){
+                    std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
+                    return grpc::Status(grpc::StatusCode::NOT_FOUND, "custom error msg");
+                }
+                firstReq = false;
+            }
+
+            res = write(fd, request.data().c_str(), request.filesize());
+            if(res == -1){
+                std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
+                close(fd);
+                return grpc::Status(grpc::StatusCode::NOT_FOUND, "custom error msg");
+            }
         }
-        unsigned long int fileSize = request->filesize();
-        std::cout << "wiscSerer: CloseFile: FileSize = " << fileSize << std::endl;
-        int sz = write(tfd, newContent.c_str(), fileSize);
-        //std::cout << "wiscServer:CloseFIle: newContent.strlen() == " << strlen(newContent.c_str());
-        if(sz < 0) {
-            std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
-        }
-        close(tfd);
-        int ret = rename (tmpFileName.c_str(), curFileName.c_str());
+
+        fsync(fd);
+        close(fd);
+
+        int ret = rename (tempPath.c_str(), path.c_str());
         if (ret < 0) {
             std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status\n";
             reply->set_status(-1);
@@ -169,46 +297,10 @@ class wiscAFSImpl final : public AFSController::Service {
         }
         else{
             std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
-            unlink(tmpFileName.c_str());
+            unlink(tempPath.c_str());
             reply->set_status(0);
             return Status::OK;
         }
-
-
-        //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
-        /*int fileDescriptor = request->filedescriptor();
-        close(fileDescriptor);
-        if (fileDescriptor != -1) {
-            //TEMP FILE
-            ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
-            if (writeResult == -1) {
-                reply->set_status(-1);
-                reply->set_error(errno);
-                close(fileDescriptor);
-                unlink(tmp_filename.c_str());
-                std::cout << "wiscServer: Exiting CloseFile\n";
-                return Status::OK;
-            }
-            int closeResult = close(fileDescriptor);
-            if(closeResult == -1){
-                reply->set_status(-1);
-                reply->set_error(errno);
-                std::cout << "wiscServer: Exiting CloseFile\n";
-                return Status::OK;
-            }
-            if (rename(tmp_filename.c_str(), fileName.c_str()) == -1) {
-                unlink(tmp_filename.c_str());
-                std::cout << "wiscServer: Exiting CloseFile\n";
-                return Status::OK;
-            }
-            reply->set_status(1);
-        }
-        else{
-            reply->set_status(-1);
-        }
-        reply->set_error(errno);
-        std::cout << "wiscServer: Exiting CloseFile\n";
-        return Status::OK;*/
     }
 
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
