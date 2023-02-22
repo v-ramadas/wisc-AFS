@@ -202,9 +202,20 @@ int wiscAFS_write (const char *path, const char *buf, size_t size,
 
 int wiscAFS_statfs(const char *path, struct statvfs *buf)
 {
-    //TODO Implement
-    int ret = statvfs(path, buf);
-    if (ret == -1) {
+    RPCResponse ret = afsClient->Statfs(path);
+    buf->f_bsize = ret.statfs().f_bsize();
+    buf->f_frsize = ret.statfs().f_frsize();
+    buf->f_blocks = ret.statfs().f_blocks();
+    buf->f_ffree = ret.statfs().f_ffree();
+    buf->f_bavail = ret.statfs().f_bavail();
+    buf->f_files = ret.statfs().f_files();
+    buf->f_ffree = ret.statfs().f_ffree();
+    buf->f_favail = ret.statfs().f_favail();
+    buf->f_fsid = ret.statfs().f_fsid();
+    buf->f_flag = ret.statfs().f_flag();
+    buf->f_namemax = ret.statfs().f_namemax();
+
+    if (ret.status() == -1) {
         return -errno;
     }
 

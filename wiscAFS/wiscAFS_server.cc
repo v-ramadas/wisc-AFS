@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/vfs.h>
+#include <sys/statvfs.h>
 #include <sys/xattr.h>
 #include <dirent.h>
 
@@ -68,18 +69,18 @@ class wiscAFSImpl final : public AFSController::Service {
         fileInfo->set_st_ctim(info.st_ctim.tv_nsec);
     }
 
-    void setStatFS(Statfs* statFS, struct statfs info) {
-        statFS->set_f_type(info.f_type);
+    void setStatFS(Statfs* statFS, struct statvfs info) {
         statFS->set_f_bsize(info.f_bsize);
+        statFS->set_f_frsize(info.f_frsize);
         statFS->set_f_blocks(info.f_blocks);
         statFS->set_f_bfree(info.f_bfree);
         statFS->set_f_bavail(info.f_bavail);
+        statFS->set_f_favail(info.f_favail);
         statFS->set_f_files(info.f_files);
         statFS->set_f_ffree(info.f_ffree);
-        statFS->set_f_fsid(((long)(info.f_fsid.__val[1]) << 32) | (info.f_fsid.__val[0]));
-        statFS->set_f_namelen(info.f_namelen);
-        statFS->set_f_frsize(info.f_frsize);
-        statFS->set_f_flags(info.f_flags);
+        statFS->set_f_fsid(info.f_fsid);
+        statFS->set_f_namemax(info.f_namemax);
+        statFS->set_f_flag(info.f_flag);
     }
 
    /* Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
@@ -548,8 +549,8 @@ class wiscAFSImpl final : public AFSController::Service {
         std::string filename = request->filename();
         Statfs* statfs_obj = new Statfs();// =  reply->mutable_data();
 
-        struct statfs file_info;
-        if (statfs(filename.c_str(), &file_info) == -1) {
+        struct statvfs file_info;
+        if (statvfs(filename.c_str(), &file_info) == -1) {
             //The file information could not be retrieved.
             reply->set_status(-1);
         } else {

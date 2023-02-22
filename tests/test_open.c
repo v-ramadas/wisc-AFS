@@ -3,6 +3,7 @@
 #include<fcntl.h>
 #include<stdlib.h>
 #include<sys/stat.h>
+#include <sys/statvfs.h>
 int main()
 {
     int fd = open("/tmp/fs/b.txt", O_CREAT|O_RDWR|O_TRUNC, 0777);
@@ -29,6 +30,10 @@ int main()
         struct stat buffer;
         int status = lstat("/tmp/fs/b.txt", &buffer);
         printf("Returned lstat, access time = %ld, modification time = %ld\n ", buffer.st_atime, buffer.st_mtime);
+
+        struct statvfs vfs;
+        status = statvfs("/tmp/fs", &vfs);
+        printf("Returned statvfs, block size = %ld, filesystem block size = %ld, number of free blocks available = %ld\n ", vfs.f_bsize, vfs.f_frsize, vfs.f_bavail);
 
         sz = pwrite(fd, "44444", 5, 10);
         printf("write sz = %d\n", sz);

@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
       std::cout << "Sending StatFS\n";
       RPCResponse statfs_res = afsClient.Statfs(path3);
-      std::cout << "Response recieved : " << statfs_res.statfs().f_type();
+      std::cout << "Response recieved : " << statfs_res.statfs().f_bavail();
       /*std::cout << "Sending CreateDir\n" ;
       reply = afsClient.CreateDir(dirname, path, dirmode);
       std::cout << "Response recieved : " << reply.status() << std::endl;

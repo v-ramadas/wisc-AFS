@@ -33,9 +33,6 @@ void wiscAFSClient::setFileInfo(FileInfo* fileInfo, struct stat info) {
 
 
 int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
-   //ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
-   //if(ccv1 == nullptr){
-   // Data we are sending to the server. ##ASSUMING FILENAMES include path
       
    std::cout << "wiscClient:OpenFile: Entering OpenFile\n";
    RPCRequest request;
@@ -45,7 +42,6 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
    // Container for the data we expect from the server.
    RPCResponse reply;
    CacheFileInfo fileatts;
-   //ClientCacheValue ccv;
 
    // Context for the client. It could be used to convey extra information to
    // the server and/or tweak certain RPC behaviors.
@@ -87,164 +83,7 @@ int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
    // TODO: If not, then retry the whole operation
 
    return fileDescriptor;
-
-
-   // Act upon its status.
-//    if (status.ok()) {
-//        std::cout << "wiscClient:OpenFile Reply status " << reply.status() << std::endl;
-//        std::string local_path = (client_path + std::to_string(reply.fileinfo().st_ino()) + ".tmp").c_str();
-//        int fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
-//        if (fileDescriptor < 0) {
-//            std::cout << "ERROR: Cannot open temp file " << local_path << std::endl;
-//        }
-
-//        if (fileDescriptor != -1) {
-//            std::cout << "wiscClient: OpenFile: Reply data received at client = " << reply.data() << std::endl;
-//            ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
-//            printf("wiscClient:OpenFile: writeResult = %ld\n", writeResult);
-//            //SUCCESS
-//            printf("wiscClient:OpenFile: Printing fileatts = %ld, %ld, %ld\n", reply.fileinfo().st_size(),reply.fileinfo().st_atim(),reply.fileinfo().st_mtim());
-//            CacheFileInfo fileatts;
-//            fileatts.setFileInfo(&reply.fileinfo());
-//            ClientCacheValue ccv(fileatts, false, fileDescriptor);
-//            ccv.fileInfo.st_ino = reply.fileinfo().st_ino();
-//            std::cout << "wiscClient:OpenFile: Set reply.inode() = " << reply.fileinfo().st_ino() << "ccv.inode = " << ccv.fileInfo.st_ino << std::endl;
-//            diskCache.addCacheValue(filename, ccv);
-//            errno = reply.error();
-//            return fileDescriptor;
-//            } else {
-//                std::cout << "wiscClient:OpenFile Exiting OpenFile\n";
-//                errno = reply.error();
-//                return fileDescriptor;
-//             }
-//      }
-//    else {
-//        std::cout << "wiscClient:OpenFile Exiting OpenFile\n";
-//        errno = reply.error();
-//        return -1;
-//    }
 }
-/*int wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
-   //ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
-   //if(ccv1 == nullptr){
-   // Data we are sending to the server. ##ASSUMING FILENAMES include path
-      
-   std::cout << "wiscClient:OpenFile: Entering OpenFile\n";
-   RPCRequest request;
-   request.set_filename(filename);
-   request.set_flags(flags);
-
-   // Container for the data we expect from the server.
-   RPCResponse reply;
-
-   // Context for the client. It could be used to convey extra information to
-   // the server and/or tweak certain RPC behaviors.
-   ClientContext context;
-
-   // The actual RPC.
-   Status status = stub_->OpenFile(&context, request, &reply);
-   // Act upon its status.
-   if (status.ok()) {
-       std::cout << "wiscClient:OpenFile Reply status " << reply.status() << std::endl;
-       std::string local_path = (client_path + std::to_string(reply.fileinfo().st_ino()) + ".tmp").c_str();
-       int fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
-       if (fileDescriptor < 0) {
-           std::cout << "ERROR: Cannot open temp file " << local_path << std::endl;
-       }
-
-       if (fileDescriptor != -1) {
-           std::cout << "wiscClient: OpenFile: Reply data received at client = " << reply.data() << std::endl;
-           ssize_t writeResult = write(fileDescriptor, reply.data().c_str(), reply.data().size());
-           printf("wiscClient:OpenFile: writeResult = %ld\n", writeResult);
-           //SUCCESS
-           printf("wiscClient:OpenFile: Printing fileatts = %ld, %ld, %ld\n", reply.fileinfo().st_size(),reply.fileinfo().st_atim(),reply.fileinfo().st_mtim());
-           CacheFileInfo fileatts;
-           fileatts.setFileInfo(&reply.fileinfo());
-           ClientCacheValue ccv(fileatts, false, fileDescriptor);
-           ccv.fileInfo.st_ino = reply.fileinfo().st_ino();
-           std::cout << "wiscClient:OpenFile: Set reply.inode() = " << reply.fileinfo().st_ino() << "ccv.inode = " << ccv.fileInfo.st_ino << std::endl;
-           diskCache.addCacheValue(filename, ccv);
-           errno = reply.error();
-           return fileDescriptor;
-           } else {
-               std::cout << "wiscClient:OpenFile Exiting OpenFile\n";
-               errno = reply.error();
-               return fileDescriptor;
-            }
-     }
-   else {
-       std::cout << "wiscClient:OpenFile Exiting OpenFile\n";
-       errno = reply.error();
-       return -1;
-   }
-}*/
-
-// int wiscAFSClient::CloseFile(const std::string& filename) {
-//     // Data we are sending to the server.
-//     // DELTE LOCAL FILES POST THIS
-//     ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
-//     RPCRequest request;
-//     if(ccv1 == nullptr){
-//         errno=ENOENT;
-//     }
-//     else if(!ccv1->isDirty){
-//         diskCache.deleteCacheValue(filename);
-//         return 0;
-//     }
-//     else{
-//         std::cout << "wiscClient:CloseFile found cache entry\n";
-//         std::string local_path = (client_path + std::to_string(ccv1->fileInfo.st_ino) + ".tmp").c_str();
-//         std::cout << "wiscClient:CloseFile: Trying to open local file = " << local_path << std::endl;
-//         int fd = open(local_path.c_str(),  O_RDONLY);
-//         unsigned long int sz;
-//         char* buffer;
-//         if (fd == -1){
-//             std::cout << "wiscClient:CloseFile: couldn't open temporary file\n";
-//         }
-//         else {
-//             sz = lseek(fd, 0L, SEEK_END);
-//             lseek(fd, 0L, SEEK_SET);
-//             buffer = new char[sz];
-//             buffer[sz] = '\0';
-//             if (sz == 0){
-//                 std::cout<< "wiscClient:CloseFile: size of temp file is 0\n";
-//                 request.set_data("");
-//             }
-//             else{
-//                 int err = read(fd, buffer, sz);
-//                 std::string s_buffer(buffer);
-//                 std::cout<< "wiscClient:CloseFile: sz = " << sz << ", sending data = " << buffer[0] << ",sz = " << sz << ", bytes read = " << err << std::endl;
-//                 request.set_data(buffer);
-//             }
-//             request.set_filesize(sz);
-//         }
-
-//         request.set_filename(filename);
-//         request.set_filedescriptor(ccv1->fileDescriptor);
-
-//         // Container for the data we expect from the server.
-//         RPCResponse reply;
-
-//         // Context for the client. It could be used to convey extra information to
-//         // the server and/or tweak certain RPC behaviors.
-//         ClientContext context;
-
-//         // The actual RPC.
-//         std::cout<< "wiscClient:CloseFile Calling stub->closefile " <<  std::endl;
-//         Status status = stub_->CloseFile(&context, request, &reply);
-
-//         if (status.ok()) {
-//             std::cout<< "wiscClient:CloseFile Deleting cacheValue, returning 0" <<  std::endl;
-//             diskCache.deleteCacheValue(filename);
-//             std::cout<< "wiscClient:CloseFile Deleted cacheValue, returning 0" <<  std::endl;
-//             return 0;
-//         }
-//         else{
-//             return -status.error_code();
-//         }
-//     }
-// }
-
 
 int wiscAFSClient::CloseFile(const std::string& filename) {
     // Data we are sending to the server.
