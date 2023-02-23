@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
     int mode = S_IRWXU;
     int dirmode = 700;
     std::cout << "Sending OpenFile\n" ;
-    int reply = afsClient.OpenFile(path1, flags);
-    std::cout << "Reply = " << reply << std::endl;
+    RPCResponse reply = afsClient.OpenFile(path1, flags);
+    std::cout << "Reply = " << reply.file_descriptor() << std::endl;
     std::string path("/tmp/fs/adirect1");
     std::cout << "Sending OpenFile\n" ;
     char buf[1024];
@@ -98,14 +98,14 @@ int main(int argc, char** argv) {
     stbuf.st_mode = S_IFDIR | 0755;  // Set the file mode to indicate a directory
     my_filler(buf, "my_dir", &stbuf, 0);
     afsClient.CreateDir(path, 0777);
-    reply = afsClient.ReadDir(path,buf,my_filler);
+    RPCDirReply dir_reply = afsClient.ReadDir(path,buf,my_filler);
     std::cout << "ABN" << buf[0] << "\n";
-    std::cout << std::endl << reply;
+    std::cout << std::endl << dir_reply.status();
 //    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
     std::cout << "Sending CreateFile\n" ;
       reply = afsClient.OpenFile(path2, O_CREAT);
-      std::cout << "Response recieved : " << reply << std::endl;
+      std::cout << "Response recieved : " << reply.file_descriptor() << std::endl;
 
       std::cout << "Sending GetAttr\n" ;
       RPCResponse response  = afsClient.GetAttr(path1);
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
     std::cout << " FileAttr : " << response.fileinfo().st_size() <<  " : " << response.fileinfo().st_ino() << " : " << response.fileinfo().st_atim() << "\n";
       std::cout << "Sending CloseFile\n" ;
       reply = afsClient.CloseFile(path1);
-      std::cout << "Response recieved : " << reply << std::endl;
+      std::cout << "Response recieved : " << reply.status() << std::endl;
 
       std::cout << "Sending DeleteFile\n" ;
       afsClient.DeleteFile(path2);

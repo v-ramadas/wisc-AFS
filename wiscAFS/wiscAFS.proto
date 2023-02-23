@@ -41,6 +41,7 @@ message RPCDirReply{
     string dname = 2;
     uint32 dtype = 3;
     int32 error = 4;
+    int32 status = 5;
 }
 
 // The request message containing the user's name.
@@ -86,7 +87,7 @@ message Statfs {
     uint64 f_namemax = 9;
     uint64 f_frsize = 10;
     uint64 f_flag = 11;
-};
+}
 
 message RPCResponse {
   int32 status = 1;
@@ -96,4 +97,5 @@ message RPCResponse {
   optional Statfs statfs = 5;
   optional string xattr_value = 8;
   optional int32 xattr_size = 9;
+  optional int32 file_descriptor = 10;
 }

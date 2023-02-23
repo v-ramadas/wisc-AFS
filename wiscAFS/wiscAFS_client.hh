@@ -36,9 +36,9 @@ class wiscAFSClient {
         void setFileInfo(FileInfo*, struct stat);
         // Assembles the client's payload, sends it and presents the response back
         // from the server.
-        int OpenFile(const std::string& filename, const int flags);
+        RPCResponse OpenFile(const std::string& filename, const int flags);
 
-        int CloseFile(const std::string& filename);
+        RPCResponse CloseFile(const std::string& filename);
 
         RPCResponse RenameFile(const std::string& oldname, const std::string& newname);
 
@@ -48,9 +48,9 @@ class wiscAFSClient {
 
         int WriteFile(const std::string& filename);
 
-        int CreateFile(const std::string& filename, const int flags, const int mode);
+        RPCResponse CreateFile(const std::string& filename, const int flags, const int mode);
 
-        int ReadDir(const std::string& p, void *buf, fuse_fill_dir_t filler);
+        RPCDirReply ReadDir(const std::string& p, void *buf, fuse_fill_dir_t filler);
 
         // Data we are sending to the server.
         RPCResponse DeleteFile(const std::string& filename);

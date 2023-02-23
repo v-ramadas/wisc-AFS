@@ -75,7 +75,7 @@ int wiscAFS_unlink(const char* path)
     std::string s_path = path;
     RPCResponse ret = afsClient->DeleteFile(s_path);
     if (ret.status() == -1) {
-	return -errno;
+        return -ret.error();
     }
     return 0;
 }
@@ -85,7 +85,7 @@ int wiscAFS_rmdir(const char* path)
     std::string s_path = path;
     RPCResponse ret = afsClient->RemoveDir(s_path);
     if (ret.status() == -1) {
-	return -errno;
+	return -ret.error();
     }
     
     return 0;
@@ -95,17 +95,17 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 {
     std::string s_path = path;
     printf("wiscOPS:Open: Sending openFile to client\n");
-    int ret = afsClient->OpenFile(s_path, fi->flags);
-    if (ret == -1) {
-        return -errno;
+    RPCResponse ret = afsClient->OpenFile(s_path, fi->flags);
+    if (ret.status() == -1) {
+        return -ret.error();
     }
-    printf("wiscOPS:Open: In wisAFS_open Ret = %d\n", ret);
+    printf("wiscOPS:Open: In wisAFS_open Ret = %d\n", ret.file_descriptor());
 
     /*ret2 = open(path, fi->flags);
     if (ret2 == -1) {
         return -errno;
     }*/
-    fi->fh = ret;
+    fi->fh = ret.file_descriptor();
 
     return 0;
 }
@@ -114,9 +114,9 @@ int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
     fsync(fi->fh);
     close(fi->fh);
     std::string s_path(path);
-    int ret = afsClient->CloseFile(s_path);
-    if (ret == -1) {
-        return -errno;
+    RPCResponse ret = afsClient->CloseFile(s_path);
+    if (ret.status() == -1) {
+        return -ret.error();
     }
     return 0;
 }
@@ -187,9 +187,7 @@ int wiscAFS_write (const char *path, const char *buf, size_t size,
     printf("wiscAFS_write: Calling afsClient writeFile, Path = %s\n", path);
     int afsRet = afsClient->WriteFile(s_path);
     if (afsRet == -1) {
-        //fprintf(stdout, "Sorry!");
         printf("wiscAFS_write: afsRet = -1\n");
-        write(fd, "Sorry!\n", strlen("Sorry\n!"));
         return -errno;
     }
 
@@ -242,26 +240,29 @@ int wiscAFS_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi)
 {
     //TODO: For now just copied original, change later
-    int res = afsClient->ReadDir(path, buf, filler);
-    return res;
+    RPCDirReply res = afsClient->ReadDir(path, buf, filler);
+    if (res.status() == -1){
+        return -res.error();
+    }
+    return 0;
 }
 
 int wiscAFS_create(const char *path, mode_t mode,
                       struct fuse_file_info *fi)
 {
     std::string s_path = path;
-    printf("wiscOPS:Open: Sending openFile to client\n");
-    int ret = afsClient->CreateFile(s_path, fi->flags, mode);
-    if (ret == -1) {
-        return -errno;
+    printf("wiscOPS:Create: Sending CreateFile to client\n");
+    RPCResponse ret = afsClient->CreateFile(s_path, fi->flags, mode);
+    if (ret.status() == -1) {
+        return -ret.error();
     }
-    printf("wiscOPS:Open: In wisAFS_open Ret = %d\n", ret);
+    printf("wiscOPS:Create: In wisAFS_create Ret = %d\n", ret.file_descriptor());
 
     /*ret2 = open(path, fi->flags);
     if (ret2 == -1) {
         return -errno;
     }*/
-    fi->fh = ret;
+    fi->fh = ret.file_descriptor();
 
     return 0;    
 }
