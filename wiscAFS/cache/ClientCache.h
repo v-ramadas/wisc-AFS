@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <semaphore.h>
 #include "wiscAFS.grpc.pb.h"
 
 using wiscAFS::FileInfo;
@@ -106,7 +107,20 @@ class DiskCache {
     std::map<std::string, ClientCacheValue> cache;
 
     public:
+
+    sem_t semaphore;
+    int cacheAccess = 1;
+
+    DiskCache() {
+        sem_init(&semaphore, 1, 1);
+    }
+
+    ~DiskCache() {
+        sem_destroy(&semaphore);
+    }
+
     void loadCache() {
+        sem_wait(&semaphore);
         std::ifstream cache_file(CACHE_FILE);
         if (cache_file) {
             std::string line;
@@ -145,6 +159,7 @@ class DiskCache {
             }
             cache_file.close();
         }
+        sem_post(&semaphore);
     }
 
     void saveCache() {
@@ -169,6 +184,7 @@ class DiskCache {
         }
         
     }
+
     //check for nullPTR
     ClientCacheValue* getCacheValue(std::string key) {
         auto it = cache.find(key);
@@ -179,24 +195,30 @@ class DiskCache {
     }
 
     void addCacheValue(std::string key, ClientCacheValue value) {
+        sem_wait(&semaphore);
         cache.insert({key,value});
         saveCache();
+        sem_post(&semaphore);
     }
 
     void updateCacheValue(const std::string &key, ClientCacheValue &value) {
+        sem_wait(&semaphore);
         auto it = cache.find(key);
         if (it != cache.end()) {
             it->second = value;
             saveCache();
         }
+        sem_post(&semaphore);
     }
 
      void deleteCacheValue(const std::string &key) {
+        sem_wait(&semaphore);
         auto it = cache.find(key);
         if (it != cache.end()) {
             cache.erase(key);
             saveCache();
         }
+        sem_post(&semaphore);
     }
 
 };
