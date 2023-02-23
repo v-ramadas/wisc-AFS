@@ -295,6 +295,18 @@ int wiscAFS_access(const char *path, int mode)
     return 0;
 }
 
+int wiscAFS_rename(const char* oldname, const char* newname) {
+
+    std::string s_oldpath = oldname;
+    std::string s_newpath = newname;
+    RPCResponse ret = afsClient->RenameFile(s_oldpath, s_newpath);
+    if (ret.status() == -1) {
+        return -ret.error();
+    }
+
+    return 0;
+
+}
 
 void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (

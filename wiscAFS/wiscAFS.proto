@@ -33,6 +33,7 @@ service AFSController {
   rpc ReadDir (RPCRequest) returns (stream RPCDirReply) {}
   rpc GetXAttr (RPCRequest) returns (RPCResponse) {}
   rpc AccessFile (RPCRequest) returns (RPCResponse) {}
+  rpc RenameFile (RPCRequest) returns (RPCResponse) {}
 }
 
 message RPCDirReply{
@@ -54,6 +55,7 @@ message RPCRequest {
   optional string xattr_name = 8;
   optional string xattr_value = 9;
   optional int32 xattr_size = 10;
+  optional string newfilename = 11;
 }
 
 message FileInfo {

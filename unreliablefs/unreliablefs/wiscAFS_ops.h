@@ -21,7 +21,7 @@ void* wiscAFS_init(struct fuse_conn_info*);
 int wiscAFS_getxattr(const char *path, const char *name, char *value, size_t size);
 int wiscAFS_truncate(const char *path, off_t length);
 int wiscAFS_access(const char *path, int mode);
-
+int wiscAFS_rename(const char* , const char*);
 int temp_fn();
 #ifdef __cplusplus
 }

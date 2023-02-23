@@ -221,4 +221,16 @@ class DiskCache {
         sem_post(&semaphore);
     }
 
+    void renameCacheValue(const std::string &key, const std::string &new_key) {
+        sem_wait(&semaphore);
+        auto it = cache.find(key);
+        if (it != cache.end()) {
+            ClientCacheValue temp(it->second);
+            cache.erase(key);
+            cache.insert({new_key, temp});
+            saveCache();
+        }
+        sem_post(&semaphore);
+    }
+
 };

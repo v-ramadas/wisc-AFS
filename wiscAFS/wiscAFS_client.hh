@@ -40,6 +40,8 @@ class wiscAFSClient {
 
         int CloseFile(const std::string& filename);
 
+        RPCResponse RenameFile(const std::string& oldname, const std::string& newname);
+
         
         //Returning either fD or error
         int ReadFile(const std::string& filename);

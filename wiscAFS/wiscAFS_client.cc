@@ -158,6 +158,41 @@ int wiscAFSClient::CloseFile(const std::string& filename) {
     }
 }
 
+RPCResponse wiscAFSClient::RenameFile(const std::string& oldname, const std::string& newname) {
+    std::cout << "wiscClient: Entering RenameFile\n";
+    ClientCacheValue *ccv = diskCache.getCacheValue(oldname);
+
+    RPCResponse reply;
+    if (ccv != nullptr) {
+        diskCache.renameCacheValue(oldname, newname);
+        ccv = diskCache.getCacheValue(newname);
+        if (ccv == nullptr) {
+            std::cout <<"wiscCient: Rename Failed on cache copy\n";
+            reply.set_status(-1);
+            reply.set_error(EACCES);
+            return reply;
+        }
+    }
+
+    ClientContext context;
+
+    RPCRequest request;
+    request.set_filename(oldname);
+    request.set_newfilename(newname);
+    Status status = stub_->RenameFile(&context, request, &reply);
+    if (status.ok()) {
+       std::cout << "wiscClient:RenameFile Reply status " << reply.status() << std::endl;
+       std::cout << "wiscClient:Exiting RenameFile\n";
+    }
+    else {
+       std::cout << "wiscClient:RenameFile Failed! Exiting RenameFile\n";
+       errno = reply.error();
+    }
+
+    return reply;
+
+}
+
 
 int wiscAFSClient::ReadFile(const std::string& filename) {
     ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);

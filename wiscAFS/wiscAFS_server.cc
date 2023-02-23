@@ -322,6 +322,20 @@ class wiscAFSImpl final : public AFSController::Service {
         }
     }
 
+    Status RenameFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        std::string oldname = request->filename();
+        std::string newname = request->newfilename();
+        int ret = rename(oldname.c_str(), newname.c_str());
+        if (ret == -1) {
+            reply->set_status(-1);
+            reply->set_error(errno);
+            std::cout << "WiscServer: RenameFile Failed\n";
+            return Status::OK;
+        }
+        reply->set_status(1);
+        return Status::OK;
+    }
+
     /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
      Status CreateFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
         // Error handle the path and filename
