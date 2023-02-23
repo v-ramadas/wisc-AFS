@@ -152,15 +152,19 @@ class wiscAFSImpl final : public AFSController::Service {
 
         int fd = open((filename).c_str(), flags);
         std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
-        if (fd < 0)
-            std::cout << "Cannot open file " << filename << std::endl;
+        if (fd < 0){
+            reply.set_status(-1);
+            reply.set_error(errno);
+            std::cout << "wiscServer: OpenFile: Cannot open file " << filename << std::endl;
+            return Status::OK;
+        }
         
         FileInfo *fileInfo = new FileInfo;
         char *buf = new char[1024];
         if (fstat(fd, &file_info) == -1) {
                 reply.set_status(-1);
                 reply.set_error(errno);
-                std::cout << "WiscServer: Exiting OpenFile\n";
+                std::cout << "WiscServer: OpenFile: Cannot fstat exiting OpenFile\n";
                 return Status::OK;
         }
         setFileInfo(fileInfo, file_info);
@@ -189,8 +193,10 @@ class wiscAFSImpl final : public AFSController::Service {
             }
 
             if(err == -1){
-                std::cout << "ERROR: wiscServer: OpenFile:Cannot read file file " << filename << std::endl;
-                break;
+                std::cout << "ERROR: wiscServer: OpenFile:Cannot read file " << filename << std::endl;
+                reply.set_status(-1);
+                reply.set_error(errno);
+                return Status::OK;
             }
 
             reply.set_data(buf);
@@ -200,6 +206,7 @@ class wiscAFSImpl final : public AFSController::Service {
         close(fd);
         free(buf);
         std::cout << "WiscServer: Exiting OpenFile\n";
+        reply.set_status(1);
 
         return Status::OK;
     }
@@ -312,6 +319,7 @@ class wiscAFSImpl final : public AFSController::Service {
         if (ret < 0) {
             std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status\n";
             reply->set_status(-1);
+            reply->set_error(errno);
             return Status::OK;
         }
         else{
@@ -349,15 +357,19 @@ class wiscAFSImpl final : public AFSController::Service {
 
         int fd = open((filename).c_str(), flags, mode);
         std::cout << "wiscServer:CreateFilePrinting filename,  fd, flags, mode " << filename << ", " << fd << ", " << flags << ", " <<  mode << std::endl;
-        if (fd < 0)
+        if (fd < 0){
             std::cout << "ERROR: Cannot open file " << filename << std::endl;
+            reply->set_status(-1);
+            reply->set_error(errno);
+            return Status::OK;
+        }
         FileInfo *fileInfo = new FileInfo;
         if (fd != -1) {
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
                 reply->set_error(errno);
-                std::cout << "WiscServer:CreateFile Exiting OpenFile\n";
+                std::cout << "WiscServer:CreateFile fstat failed\n";
                 return Status::OK;
             }
 
@@ -420,6 +432,7 @@ class wiscAFSImpl final : public AFSController::Service {
         int result = mkdir((dirName).c_str(), mode);
         if (result == -1) {
             std::cout << "wiscServer:CreateDir: mkdir failed" << std::endl;
+            reply->set_status(-1);
             reply->set_error(errno);
             return Status::OK;
         } else {
@@ -438,10 +451,11 @@ class wiscAFSImpl final : public AFSController::Service {
         int result = unlink((filename).c_str());
         if (result == -1) {
             std::cout << "wiscServer:DeleteFile: DeleteFile failed" << std::endl;
+            reply->set_status(-1);
             reply->set_error(errno);
             return Status::OK;
         } else {
-            reply->set_status(0);
+            reply->set_status(1);
         }
         std::cout << "wiscServer:DeleteFile: Exiting DeleteFile\n";
         return Status::OK;
@@ -488,8 +502,9 @@ class wiscAFSImpl final : public AFSController::Service {
 			std::cout<<"opendir dp null"<<std::endl;
             perror(strerror(errno));
 			reply.set_error(errno);
-     
-            return grpc::Status(grpc::StatusCode::NOT_FOUND, "dp not found on server");
+            reply.set_status(-1);
+		    writer->Write(reply);
+            return grpc::Status::OK;
 		}
 
 		while((de = readdir(dp)) != NULL){
@@ -497,10 +512,12 @@ class wiscAFSImpl final : public AFSController::Service {
 		    reply.set_dino(de->d_ino);
 		    reply.set_dname(de->d_name);
 		    reply.set_dtype(de->d_type);
+            reply.set_status(1);
 		    writer->Write(reply);
 		}
 		reply.set_error(0);
         closedir(dp);
+        reply.set_status(1);
 		return Status::OK;
   }
 
@@ -550,8 +567,11 @@ class wiscAFSImpl final : public AFSController::Service {
          reply->set_xattr_size(size);
          if (size < 0) {
            std::cout << "wiscServer: Exiting GetXAttr\n";
-           return Status(grpc::StatusCode::NOT_FOUND, "File or attribute not found.");
+           reply->set_status(-1);
+           reply->set_error(errno);
+           return Status::OK;
          }
+         reply->set_status(1);
          reply->set_error(errno);
          std::cout << "wiscServer: Exiting GetXAttr\n";
          return Status::OK;
