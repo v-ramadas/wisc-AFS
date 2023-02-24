@@ -34,6 +34,7 @@ service AFSController {
   rpc GetXAttr (RPCRequest) returns (RPCResponse) {}
   rpc AccessFile (RPCRequest) returns (RPCResponse) {}
   rpc RenameFile (RPCRequest) returns (RPCResponse) {}
+  rpc Fcntl (RPCRequest) returns (RPCResponse) {}
 }
 
 message RPCDirReply{
@@ -42,6 +43,14 @@ message RPCDirReply{
     uint32 dtype = 3;
     int32 error = 4;
     int32 status = 5;
+}
+
+message FileLock {
+    uint32 l_type = 1;
+    uint32 l_whence = 2;
+    uint32 l_start = 3;
+    uint32 l_len = 4;
+    uint32 l_pid = 5;
 }
 
 // The request message containing the user's name.
@@ -57,6 +66,7 @@ message RPCRequest {
   optional string xattr_value = 9;
   optional int32 xattr_size = 10;
   optional string newfilename = 11;
+  optional FileLock filelock = 12;
 }
 
 message FileInfo {

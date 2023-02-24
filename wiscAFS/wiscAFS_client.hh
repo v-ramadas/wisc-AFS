@@ -22,6 +22,7 @@ using wiscAFS::RPCResponse;
 using wiscAFS::RPCRequest;
 using wiscAFS::FileInfo;
 using wiscAFS::RPCDirReply;
+using wiscAFS::FileLock;
 
 class wiscAFSClient {
 

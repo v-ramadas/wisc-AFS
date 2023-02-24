@@ -121,7 +121,7 @@ int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
     close(fi->fh);
     std::string s_path(path);
     std::cout << "wiscAFS_flush: Calling closefile with path =" << path << std::endl;
-    RPCResponse ret = afsClient->CloseFile(s_path, false);
+    RPCResponse ret = afsClient->CloseFile(s_path, true);
     if (ret.status() == -1) {
         return -ret.error();
     }
