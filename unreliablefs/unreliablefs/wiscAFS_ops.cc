@@ -41,6 +41,12 @@ int wiscAFS_getattr(const char *path, struct stat *buf)
     return 0;
 }
 
+int wiscAFS_fgetattr(const char* path, struct stat* buf, struct fuse_file_info* fi)
+{
+    printf("wiscAFS_fgetattr(): Entering function\n");
+    return wiscAFS_getattr(path, buf);
+}
+
 int wiscAFS_getxattr(const char *path, const char *name, char *value, size_t size)
 {
     std::string s_path = path;
@@ -114,7 +120,20 @@ int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
     fsync(fi->fh);
     close(fi->fh);
     std::string s_path(path);
-    RPCResponse ret = afsClient->CloseFile(s_path);
+    std::cout << "wiscAFS_flush: Calling closefile with path =" << path << std::endl;
+    RPCResponse ret = afsClient->CloseFile(s_path, false);
+    if (ret.status() == -1) {
+        return -ret.error();
+    }
+    return 0;
+}
+
+int wiscAFS_release(const char * path, struct fuse_file_info *fi) {
+    fsync(fi->fh);
+    close(fi->fh);
+    std::string s_path(path);
+    std::cout << "wiscAFS_flush: Calling closefile with path =" << path << std::endl;
+    RPCResponse ret = afsClient->CloseFile(s_path, true);
     if (ret.status() == -1) {
         return -ret.error();
     }
@@ -146,7 +165,7 @@ int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct
     if (ret == -1) {
         ret = -errno;
     }
-    printf("wiscAFS_read: buf = %s\n", buf);
+    //printf("wiscAFS_read: buf = %s\n", buf);
 
     if (fi == NULL) {
 	close(fd);

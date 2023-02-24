@@ -7,7 +7,7 @@
 int main()
 {
     //int fd = open("/tmp/fs/b.txt", O_CREAT|O_RDWR|O_TRUNC);
-    int fd = open("/tmp/fs/b.txt", O_RDWR|O_TRUNC);
+    int fd = open("/tmp/fs/c.txt", O_CREAT|O_RDWR|O_TRUNC);
     char *c = (char*)calloc (100, sizeof(char));
     if (fd == -1) {
         printf("ERROR Could not open file\n");
