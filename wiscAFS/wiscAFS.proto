@@ -93,8 +93,9 @@ message RPCResponse {
   int32 status = 1;
   int32 error = 2;
   bytes data = 3;
-  optional FileInfo fileInfo = 4;
-  optional Statfs statfs = 5;
+  int64 fileSize = 4;
+  optional FileInfo fileInfo = 5;
+  optional Statfs statfs = 6;
   optional string xattr_value = 8;
   optional int32 xattr_size = 9;
   optional int32 file_descriptor = 10;

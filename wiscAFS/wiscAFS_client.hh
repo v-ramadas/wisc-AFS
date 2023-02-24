@@ -38,7 +38,7 @@ class wiscAFSClient {
         // from the server.
         RPCResponse OpenFile(const std::string& filename, const int flags);
 
-        RPCResponse CloseFile(const std::string& filename);
+        RPCResponse CloseFile(const std::string& filename, bool release);
 
         RPCResponse RenameFile(const std::string& oldname, const std::string& newname);
 
@@ -68,6 +68,8 @@ class wiscAFSClient {
         RPCResponse Statfs(const std::string& filename);
 
         RPCResponse AccessFile(const std::string& filename, const int mode);
+
+        RPCResponse Fcntl(const std::string& path, struct fuse_file_info* fi, int cmd, struct flock *fl);
 
     private:
         std::unique_ptr<AFSController::Stub> stub_;

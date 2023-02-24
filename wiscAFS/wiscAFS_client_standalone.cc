@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
 
     std::cout << " FileAttr : " << response.fileinfo().st_size() <<  " : " << response.fileinfo().st_ino() << " : " << response.fileinfo().st_atim() << "\n";
       std::cout << "Sending CloseFile\n" ;
-      reply = afsClient.CloseFile(path1);
+      reply = afsClient.CloseFile(path1, true);
       std::cout << "Response recieved : " << reply.status() << std::endl;
 
       std::cout << "Sending DeleteFile\n" ;

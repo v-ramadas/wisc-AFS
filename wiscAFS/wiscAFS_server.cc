@@ -175,24 +175,24 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "wiscServer:OpenFile: total size = " << sz << std::endl;
 
         while(1){
-            int err;
+            int bytesRead;
             if (sz == 0){
                 reply.set_data("");
                 writer->Write(reply);
                 break;
             }
             if (sz < 1024){
-                err = read(fd, buf, sz);
+                bytesRead = read(fd, buf, sz);
             }
             else{
-                err = read(fd, buf, 1024);
+                bytesRead = read(fd, buf, 1024);
             }
-            std::cout << "wiscServer: OpenFile: Sending err, data " << err << ", " << buf << std::endl;
-            if(err == 0){
+            std::cout << "wiscServer: OpenFile: Sending bytesRead, data " << bytesRead << ", " << buf << std::endl;
+            if(bytesRead == 0){
                 break;
             }
 
-            if(err == -1){
+            if(bytesRead == -1){
                 std::cout << "ERROR: wiscServer: OpenFile:Cannot read file " << filename << std::endl;
                 reply.set_status(-1);
                 reply.set_error(errno);
@@ -200,6 +200,7 @@ class wiscAFSImpl final : public AFSController::Service {
             }
 
             reply.set_data(buf);
+            reply.set_filesize(bytesRead);
             writer->Write(reply);
         }
      
@@ -538,7 +539,7 @@ class wiscAFSImpl final : public AFSController::Service {
         struct stat file_info;
         if (lstat(filename.c_str(), &file_info) == -1) {
             //The file information could not be retrieved.
-            std::cout << "wiscServer: lstat failed returning -1\n";
+            std::cout << "wiscServer: lstat failed for " << filename << " returning -1\n";
             reply->set_status(-1);
             reply->set_error(errno);
             return Status::OK;
