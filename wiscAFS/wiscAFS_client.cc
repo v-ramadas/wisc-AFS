@@ -115,7 +115,7 @@ RPCResponse wiscAFSClient::CloseFile(const std::string& filename, bool release) 
         return reply;
     }
     else if(!ccv1->isDirty){
-        if(release) {
+        if (release) {
             diskCache.deleteCacheValue(filename);
         }
         reply.set_status(1);

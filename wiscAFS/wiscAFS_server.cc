@@ -160,7 +160,7 @@ class wiscAFSImpl final : public AFSController::Service {
         }
         
         FileInfo *fileInfo = new FileInfo;
-        char *buf = new char[1024];
+        char *buf = new char[2048];
         if (fstat(fd, &file_info) == -1) {
                 reply.set_status(-1);
                 reply.set_error(errno);
@@ -183,11 +183,12 @@ class wiscAFSImpl final : public AFSController::Service {
             }
             if (sz < 1024){
                 bytesRead = read(fd, buf, sz);
+                buf[bytesRead] = '\0';
             }
             else{
                 bytesRead = read(fd, buf, 1024);
+                buf[bytesRead] = '\0';
             }
-            std::cout << "wiscServer: OpenFile: Sending bytesRead, data " << bytesRead << ", " << buf << std::endl;
             if(bytesRead == 0){
                 break;
             }
@@ -293,42 +294,71 @@ class wiscAFSImpl final : public AFSController::Service {
         bool firstReq = true;
         std::string path, tempPath;
         RPCRequest request;
+        struct stat file_info;
         while (reader->Read(&request)) {
             if(firstReq){
+                //tempPath = (path + "_" + std::to_string(rand() % 101743) + ".tmp");
                 path = request.filename();
+                int ret_stat = lstat(path.c_str(), &file_info);
+                if (ret_stat< -1){
+                    std::cout << "wiscServer:CloseFIle: Failed to lstat original file in server\n";
+                    reply->set_status(-1);
+                    reply->set_error(errno);
+                    return Status::OK;
+                }
                 tempPath = (path + ".tmp");
-                fd = open(tempPath.c_str(), O_CREAT|O_RDWR, 0644);
+                std::cout << "wiscServer:CloseFile: opening temp file" << tempPath << std::endl;
+                fd = open(tempPath.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
                 if(fd == -1){
                     std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
-                    return grpc::Status(grpc::StatusCode::NOT_FOUND, "custom error msg");
+                    reply->set_status(-1);
+                    reply->set_error(errno);
+                    return Status::OK;
                 }
                 firstReq = false;
             }
 
+            //std::cout << "wiscServer:CloseFile : Writing data - " << request.data() << std::endl;
             res = write(fd, request.data().c_str(), request.filesize());
             if(res == -1){
                 std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
                 close(fd);
-                return grpc::Status(grpc::StatusCode::NOT_FOUND, "custom error msg");
+                reply->set_status(-1);
+                reply->set_error(errno);
+                return Status::OK;
             }
         }
 
         fsync(fd);
         close(fd);
 
-        int ret = rename (tempPath.c_str(), path.c_str());
-        if (ret < 0) {
-            std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status\n";
+        /*int ret_chmod = chmod(path.c_str(), file_info.st_mode);
+        if (ret_chmod < 0) {
+            std::cout << "wiscServer:CloseFIle: chmod failed, returning bad status with error " << errno << "\n";
             reply->set_status(-1);
             reply->set_error(errno);
-            return Status::OK;
+        }*/
+        int ret = rename (tempPath.c_str(), path.c_str());
+        if (ret < 0) {
+            std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status with error " << errno << "\n";
+            reply->set_status(-1);
+            reply->set_error(errno);
+            //return Status::OK;
         }
         else{
             std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
             unlink(tempPath.c_str());
             reply->set_status(0);
-            return Status::OK;
+            int ret_chmod = chmod(path.c_str(), file_info.st_mode);
+            if (ret_chmod < 0) {
+                std::cout << "wiscServer:CloseFIle: chmod failed, returning bad status with error " << errno << "\n";
+                reply->set_status(-1);
+                reply->set_error(errno);
+            }
+            //return Status::OK;
         }
+        //reply->set_status(1);
+        return Status::OK;
     }
 
     Status RenameFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
