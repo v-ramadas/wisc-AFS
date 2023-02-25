@@ -151,7 +151,7 @@ class wiscAFSImpl final : public AFSController::Service {
         std::cout << "WiscServer: Entering OpenFile\n";
 
         int fd = open((filename).c_str(), flags);
-        std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
+        std::cout << "wiscServer:OpenFile: Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0){
             reply.set_status(-1);
             reply.set_error(errno);
@@ -160,7 +160,6 @@ class wiscAFSImpl final : public AFSController::Service {
         }
         
         FileInfo *fileInfo = new FileInfo;
-        char *buf = new char[2048];
         if (fstat(fd, &file_info) == -1) {
                 reply.set_status(-1);
                 reply.set_error(errno);
@@ -170,20 +169,40 @@ class wiscAFSImpl final : public AFSController::Service {
         setFileInfo(fileInfo, file_info);
         reply.set_allocated_fileinfo(fileInfo);
 
-        int sz = lseek(fd, 0L, SEEK_END);
-        lseek(fd, 0L, SEEK_SET);
-        std::cout << "wiscServer:OpenFile: total size = " << sz << std::endl;
+//        int sz = lseek(fd, 0L, SEEK_END);
+//        fseek(fd, 0L, SEEK_END);
+//        int sz = ftell(p);
+//        fseek(fd, 0L, SEEK_SET);
+        struct stat st;
+        fstat(fd, &st);
+        int sz = st.st_size;
+        std::cout << "wiscServer:OpenFile: total size = " << sz << " with fd " << fd << std::endl;
+        if (fd < 0){
+            reply.set_status(-1);
+            reply.set_error(errno);
+            std::cout << "wiscServer: OpenFile: Cannot open file " << filename << std::endl;
+            return Status::OK;
+        }
 
         while(1){
+            char *buf = new char[2048];
             int bytesRead;
             if (sz == 0){
                 reply.set_data("");
+                reply.set_filesize(0);
                 writer->Write(reply);
                 break;
             }
             if (sz < 1024){
                 bytesRead = read(fd, buf, sz);
-                //buf[bytesRead] = '\0';
+
+                //std::cout << "wiscServer: Reading size " << bytesRead << std::endl;
+            }
+            else{
+                bytesRead = read(fd, buf, 1024);
+                sz -= 1024;
+
+/*                //buf[bytesRead] = '\0';
             }
             else{
                 bytesRead = read(fd, buf, 1024);
@@ -191,22 +210,31 @@ class wiscAFSImpl final : public AFSController::Service {
             }
             if(bytesRead == 0){
                 break;
+*/
             }
 
             if(bytesRead == -1){
-                std::cout << "ERROR: wiscServer: OpenFile:Cannot read file " << filename << std::endl;
+                std::cout << "ERROR: wiscServer: OpenFile:Cannot read file " << filename << " with fd " << fd << std::endl;
+                perror("read");
+                std::cout << "ERROR: errno = " << errno << std::endl;
                 reply.set_status(-1);
                 reply.set_error(errno);
                 return Status::OK;
             }
 
-            reply.set_data(buf);
+            //buf[bytesRead] = '\0';
+            if(bytesRead == 0){
+                break;
+            }
+
+            std::cout << "wiscServer: Reading size " << bytesRead << std::endl;
+            reply.set_data(std::string(buf, bytesRead));
             reply.set_filesize(bytesRead);
             writer->Write(reply);
+            free(buf);
         }
      
         close(fd);
-        free(buf);
         std::cout << "WiscServer: Exiting OpenFile\n";
         reply.set_status(1);
 
@@ -294,11 +322,13 @@ class wiscAFSImpl final : public AFSController::Service {
         bool firstReq = true;
         std::string path, tempPath;
         RPCRequest request;
+        std::cout << "wiscServer: CloseFile entereed\n";
         struct stat file_info;
         while (reader->Read(&request)) {
             if(firstReq){
                 //tempPath = (path + "_" + std::to_string(rand() % 101743) + ".tmp");
                 path = request.filename();
+                std::cout << "wiscServer: CloseFile Printing data for filename " << path << "\n";
                 int ret_stat = lstat(path.c_str(), &file_info);
                 if (ret_stat< -1){
                     std::cout << "wiscServer:CloseFIle: Failed to lstat original file in server\n";
@@ -306,7 +336,7 @@ class wiscAFSImpl final : public AFSController::Service {
                     reply->set_error(errno);
                     return Status::OK;
                 }
-                tempPath = (path + ".tmp");
+                tempPath = (path + ".ttmmpp");
                 std::cout << "wiscServer:CloseFile: opening temp file" << tempPath << std::endl;
                 fd = open(tempPath.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
                 if(fd == -1){
@@ -319,6 +349,12 @@ class wiscAFSImpl final : public AFSController::Service {
             }
 
             //std::cout << "wiscServer:CloseFile : Writing data - " << request.data() << std::endl;
+            const char *data = request.data().c_str();
+            std::cout << "packet size = " << request.filesize() << std::endl;
+            for (int k = 0; k < request.filesize(); k++){
+                std::cout << data[k] ;
+            }
+            std::cout << "\n";
             res = write(fd, request.data().c_str(), request.filesize());
             if(res == -1){
                 std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
@@ -329,7 +365,8 @@ class wiscAFSImpl final : public AFSController::Service {
             }
         }
 
-        fsync(fd);
+        //fsync(fd);
+        std::cout << "wiscServer: Closing fd = " << fd << ", path = " << tempPath << std::endl;
         close(fd);
 
         /*int ret_chmod = chmod(path.c_str(), file_info.st_mode);
@@ -349,12 +386,13 @@ class wiscAFSImpl final : public AFSController::Service {
             std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
             unlink(tempPath.c_str());
             reply->set_status(0);
-            int ret_chmod = chmod(path.c_str(), file_info.st_mode);
+            //TODO REMOVED chmod DELIBERATELY
+            /*int ret_chmod = chmod(path.c_str(), file_info.st_mode);
             if (ret_chmod < 0) {
                 std::cout << "wiscServer:CloseFIle: chmod failed, returning bad status with error " << errno << "\n";
                 reply->set_status(-1);
                 reply->set_error(errno);
-            }
+            }*/
             //return Status::OK;
         }
         //reply->set_status(1);
