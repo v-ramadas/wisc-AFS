@@ -1,5 +1,6 @@
 #pragma once
 #include <fuse.h>
+#include<semaphore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +26,8 @@ int wiscAFS_truncate(const char *path, off_t length);
 int wiscAFS_access(const char *path, int mode);
 int wiscAFS_rename(const char* , const char*);
 int temp_fn();
+
+sem_t wiscOPSem;
 #ifdef __cplusplus
 }
 #endif

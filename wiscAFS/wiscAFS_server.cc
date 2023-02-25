@@ -195,11 +195,22 @@ class wiscAFSImpl final : public AFSController::Service {
             }
             if (sz < 1024){
                 bytesRead = read(fd, buf, sz);
+
                 //std::cout << "wiscServer: Reading size " << bytesRead << std::endl;
             }
             else{
                 bytesRead = read(fd, buf, 1024);
                 sz -= 1024;
+
+/*                //buf[bytesRead] = '\0';
+            }
+            else{
+                bytesRead = read(fd, buf, 1024);
+                //buf[bytesRead] = '\0';
+            }
+            if(bytesRead == 0){
+                break;
+*/
             }
 
             if(bytesRead == -1){

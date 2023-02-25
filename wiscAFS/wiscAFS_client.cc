@@ -34,7 +34,11 @@ void wiscAFSClient::setFileInfo(FileInfo* fileInfo, struct stat info) {
 
 RPCResponse wiscAFSClient::OpenFile(const std::string& filename, const int flags) {
       
-   std::cout << "wiscClient:OpenFile: Entering OpenFile\n";
+   int semr = sem_wait(&clientSem);
+   if (semr == -1){
+       std::cout << "wiscClient:OpenFile: sem_wait failed\n";
+   }
+   std::cout << "wiscClient:OpenFile: Start filename = " << filename << ", flags = " << flags << "\n";
    RPCRequest request;
    request.set_filename(filename);
    request.set_flags(flags);
@@ -55,121 +59,164 @@ RPCResponse wiscAFSClient::OpenFile(const std::string& filename, const int flags
    while(reader->Read(&reply)){
        if(reply.error() != 0){
            reply.set_status(-1);
+           sem_post(&clientSem);
            return reply;
        }
 
        if (count == 0){
-           std::cout << "wiscClient:OpenFile: Opening temp file and adding entry to cache" << std::endl;
            local_path = (client_path + std::to_string(reply.fileinfo().st_ino()) + ".tmp").c_str();
+           std::cout << "wiscClient:OpenFile: created temp file = " << local_path << " filename = " << filename << ", flags = " << flags << "\n";
            fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
            if (fileDescriptor < 0){
-               std::cout << "wiscClient:OpenFile: ERROR: Cannot open temp file " << local_path << std::endl;
+               std::cout << "CERROR: wiscClient:OpenFile: Cannot open temp file= " << local_path << " filename = " << filename << "\n";
                reply.set_status(-1);
                reply.set_error(errno);
+               sem_post(&clientSem);
                return reply;
            }
            fileatts.setFileInfo(&reply.fileinfo());
-           ClientCacheValue ccv(fileatts, false, fileDescriptor);
+           //TODO Now checking whether cache entry exists instead of assuming deleted
+           /*ClientCacheValue ccv(fileatts, false, fileDescriptor);
            ccv.fileInfo.st_ino = reply.fileinfo().st_ino();
-           diskCache.addCacheValue(filename, ccv);
+           diskCache.addCacheValue(filename, ccv);*/
+           ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+           if (ccv1 == nullptr){
+               ClientCacheValue ccv(fileatts, false, fileDescriptor);
+               ccv.fileInfo.st_ino = reply.fileinfo().st_ino();
+               diskCache.addCacheValue(filename, ccv);
+           }
+           else{
+               ccv1->fileInfo = fileatts;
+               ccv1->isDirty = false;
+               ccv1->fileDescriptor = fileDescriptor;
+               diskCache.updateCacheValue(filename, *ccv1);
+           }
        }
        int res = write(fileDescriptor, reply.data().c_str(), reply.filesize());
        if (res == -1) {
-           std::cout << "ERROR:wiscClient:OpenFile: Cannot write to temp file " << local_path << std::endl;
+           std::cout << "CERROR: wiscClient:OpenFile: Cannot write to temp file= " << local_path << " filename = " << filename << "\n";
            reply.set_status(-1);
            reply.set_error(errno);
+           sem_post(&clientSem);
            return reply;
        }
        count++;
 
    }
    Status status = reader->Finish();
-   close(fileDescriptor);
-   std::cout << "wiscClient:OpenFile: Finished openFile with count = " << count << std::endl;
+   //TODO Deliberately removed this because we want full permission
+   /*close(fileDescriptor);
    //Now that the temp cache file is written change the mode to the original file
-   fileDescriptor = open(local_path.c_str(),  flags, reply.fileinfo().st_mode());
+   //int chmod_ret = chmod(local_path.c_str(), reply.fileinfo().st_mode());
+   fileDescriptor = open(local_path.c_str(),  flags);
    if (fileDescriptor < 0){
-        std::cout << "wiscClient:OpenFile: Could not repoen the temp file with correct flags and mode\n";
+        std::cout << "CERROR: wiscClient:OpenFile: could not reopen with correct flags temp file= " << local_path << " filename = " << filename << "\n";
         reply.set_status(-1);
         reply.set_error(errno);
+        sem_post(&clientSem);
         return reply;
-   }
+   }*/
    reply.set_file_descriptor(fileDescriptor);
+   std::cout << "wiscClient:OpenFile: End local_path = " << local_path << " file = " << filename << "  fd =  " << fileDescriptor << std::endl;
 
    // TODO: check if the read from server finished or not. 
    // TODO: If not, then retry the whole operation
 
+   sem_post(&clientSem);
    return reply;
 }
 
 RPCResponse wiscAFSClient::CloseFile(const std::string& filename, bool release) {
     // Data we are sending to the server.
     // DELTE LOCAL FILES POST THIS
+    int semr = sem_wait(&clientSem);
+    if (semr == -1){
+        std::cout << "wiscClient:closeFile: sem_wait failed\n";
+    }
     ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    std::cout << "wiscClient:CloseFile: Start filename = " << filename << ", release = " << release << "\n";
     RPCRequest request;
     RPCResponse reply;
+    unsigned long int sz;
     if(ccv1 == nullptr){
         errno=ENOENT;
         reply.set_status(-1);
         reply.set_error(errno);
+        std::cout << "CERROR: wiscClient:CloseFile: no cache entry filename = " << filename << ", release = " << release << "\n";
+        sem_post(&clientSem);
         return reply;
     }
     else if(!ccv1->isDirty){
         if (release) {
+            std::string local_path = (client_path + std::to_string(ccv1->fileInfo.st_ino) + ".tmp").c_str();
             diskCache.deleteCacheValue(filename);
+            std::cout << "wiscClient: CloseFile: Deleting non dirty cache entry filename = " << filename << " delete temp file path = " << local_path << std::endl;
+            unlink(local_path.c_str());
         }
         reply.set_status(1);
+        sem_post(&clientSem);
         return reply;
     }
     else{
-        std::cout << "wiscClient:CloseFile found cache entry\n";
         std::string local_path = (client_path + std::to_string(ccv1->fileInfo.st_ino) + ".tmp").c_str();
-        std::cout << "wiscClient:CloseFile: Trying to open local file = " << local_path << std::endl;
+        std::cout << "wiscClient:CloseFile: Opening local file = " << local_path << " filename = " << filename << ", release = " << release << "\n";
         int fd = open(local_path.c_str(),  O_RDONLY);
         if (fd == -1){
-            std::cout << "wiscClient:CloseFile: couldn't open temporary file\n";
+            std::cout << "CERROR: wiscClient:CloseFile: couldn't open local file = " << local_path << " filename = " << filename << ", release = " << release << "\n";
             reply.set_status(-1);
             reply.set_error(errno);
+            sem_post(&clientSem);
             return reply;
         }
-        unsigned long int sz;
         sz = lseek(fd, 0L, SEEK_END);
         lseek(fd, 0L, SEEK_SET);
         request.set_filename(filename);
         request.set_filedescriptor(ccv1->fileDescriptor);
         ClientContext context;
-        std::cout<< "wiscClient:CloseFile Calling stub->closefile " <<  std::endl;
-
+        //std::cout<< "wiscClient:CloseFile Calling stub->closefile " <<  std::endl;
         std::unique_ptr<ClientWriter<RPCRequest>> writer(stub_->CloseFile(&context, &reply));
-        char *buf = new char[4096];
+        std::cout << "wiscClient:CloseFile: printing bufs for local file = " << local_path << " filename = " << filename << ", release = " << release << "\n";
         while(1){
+            char *buf = new char[4096];
             int bytesRead;
             if (sz < 1024){
                 bytesRead = read(fd, buf, sz);
-                buf[bytesRead] = '\0';
+                //buf[bytesRead] = '\0';
             }
             else{
                 bytesRead = read(fd, buf, 1024);
-                buf[bytesRead] = '\0';
+                //buf[bytesRead] = '\0';
             }
             if (bytesRead == 0) {
                 break;
             }
             if (bytesRead == -1) {
-                std::cout << "wiscClient: CloseFile: client read error while reading op - err:" << errno << std::endl;
+                std::cout << "CERROR: wiscClient:CloseFile: read error in local file = " << local_path << " filename = " << filename << ", release = " << release << "\n";
                 reply.set_status(-1);
                 reply.set_error(errno);
+                sem_post(&clientSem);
                 return reply;
             }
-            request.set_data(buf);
+            //for (int l = 0; l < bytesRead; l++){
+            //    std::cout << buf[l];
+            //}
+            //std::cout << "\nRe-reading request object datan\n";
+            request.set_data(std::string(buf, bytesRead));
             request.set_filesize(bytesRead);
+            //const char* obj_data = request.data().c_str();
+            //for (int l = 0; l < bytesRead; l++){
+            //    std::cout << obj_data[l];
+            //}
+            //std::cout << "\n";
 
             if (!writer->Write(request)) {
-                std::cout << "wiscClient: CloseFile: stream broke:" << errno << std::endl;
+                std::cout << "CERROR: wiscClient: CloseFile: stream broke:" << errno << std::endl;
                 reply.set_status(-1);
                 reply.set_error(errno);
+                sem_post(&clientSem);
                 return reply;
             }
+            free(buf);
         }
 
         writer->WritesDone();
@@ -177,16 +224,19 @@ RPCResponse wiscAFSClient::CloseFile(const std::string& filename, bool release) 
         close(fd);
         if (release) {
             diskCache.deleteCacheValue(filename);
+            std::cout << "wiscClient: CloseFile: Deleting cache entry filename = " << filename << " delete temp file path = " << local_path << std::endl;
             unlink(local_path.c_str());
         }
-        free(buf);
         reply.set_status(1);
+        std::cout << "wiscClient: CloseFile: End file " << filename << " temp file path = " << local_path << " sz = " << sz << std::endl;
       
+        sem_post(&clientSem);
         return reply;
     }
 }
 
 RPCResponse wiscAFSClient::RenameFile(const std::string& oldname, const std::string& newname) {
+    sem_wait(&clientSem);
     std::cout << "wiscClient: Entering RenameFile\n";
     ClientCacheValue *ccv = diskCache.getCacheValue(oldname);
 
@@ -198,6 +248,7 @@ RPCResponse wiscAFSClient::RenameFile(const std::string& oldname, const std::str
             std::cout <<"wiscCient: Rename Failed on cache copy\n";
             reply.set_status(-1);
             reply.set_error(EACCES);
+            sem_post(&clientSem);
             return reply;
         }
     }
@@ -217,6 +268,7 @@ RPCResponse wiscAFSClient::RenameFile(const std::string& oldname, const std::str
        errno = reply.error();
     }
 
+    sem_post(&clientSem);
     return reply;
 
 }
@@ -253,11 +305,15 @@ int wiscAFSClient::WriteFile(const std::string& filename){
 }
 
 RPCResponse wiscAFSClient::CreateFile(const std::string& filename, const int flags, const int mode) {
+   int semr = sem_wait(&clientSem);
+   if (semr == -1){
+       std::cout << "wiscClient:createFile: sem_wait failed\n";
+   }
    //ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
    //if(ccv1 == nullptr){
    // Data we are sending to the server. ##ASSUMING FILENAMES include path
       
-   std::cout << "wiscClient:CreateFile: Entering CreateFile\n";
+   //std::cout << "wiscClient:CreateFile: Entering CreateFile\n";
    RPCRequest request;
    request.set_filename(filename);
    request.set_flags(flags);
@@ -274,13 +330,14 @@ RPCResponse wiscAFSClient::CreateFile(const std::string& filename, const int fla
    Status status = stub_->CreateFile(&context, request, &reply);
    // Act upon its status.
    if (status.ok()) {
-       std::cout << "wiscClient:CreateFile Reply status " << reply.status() << std::endl;
+       //std::cout << "wiscClient:CreateFile Reply status " << reply.status() << std::endl;
        std::string local_path = (client_path + std::to_string(reply.fileinfo().st_ino()) + ".tmp").c_str();
        int fileDescriptor = open(local_path.c_str(),  O_CREAT|O_RDWR|O_TRUNC, 0777);
        if (fileDescriptor < 0) {
-           std::cout << "ERROR: Cannot open temp file " << local_path << std::endl;
+           std::cout << "MYERROR: wiscClient:CreateFile: Cannot open temp file " << local_path << std::endl;
            reply.set_status(-1);
            reply.set_error(errno);
+           sem_post(&clientSem);
            return reply;
        }
 
@@ -294,16 +351,18 @@ RPCResponse wiscAFSClient::CreateFile(const std::string& filename, const int fla
            fileatts.setFileInfo(&reply.fileinfo());
            ClientCacheValue ccv(fileatts, false, fileDescriptor);
            ccv.fileInfo.st_ino = reply.fileinfo().st_ino();
-           std::cout << "wiscClient:CreateFile: Set reply.inode() = " << reply.fileinfo().st_ino() << "ccv.inode = " << ccv.fileInfo.st_ino << std::endl;
+           std::cout << "wiscClient:CreateFile: filename = " << filename << ", local_path = " << local_path << " Set reply.inode() = " << reply.fileinfo().st_ino() << " ccv.inode = " << ccv.fileInfo.st_ino << std::endl;
            diskCache.addCacheValue(filename, ccv);
            reply.set_status(1);
            reply.set_file_descriptor(fileDescriptor);
+           sem_post(&clientSem);
            return reply;
        } 
        else {
            std::cout << "wiscClient:CreateFile Exiting CreateFile\n";
            reply.set_status(-1);
            reply.set_error(errno);
+           sem_post(&clientSem);
            return reply;
         }
    }
@@ -311,12 +370,14 @@ RPCResponse wiscAFSClient::CreateFile(const std::string& filename, const int fla
        std::cout << "wiscClient:CreateFile Exiting CreateFile\n";
        reply.set_status(-1);
        reply.set_error(status.error_code());
+       sem_post(&clientSem);
        return reply;
    }
 
 }
 
 RPCResponse wiscAFSClient::DeleteFile(const std::string& filename) {
+   sem_wait(&clientSem);
    std::cout << "wiscClient: Entering DeleteFile\n";
    RPCRequest request;
    request.set_filename(filename);
@@ -337,8 +398,6 @@ RPCResponse wiscAFSClient::DeleteFile(const std::string& filename) {
    }
    if(ccv1 == nullptr){
        std::cout << "wiscClient:DeleteFile: Cache entry not found\n";
-       errno=ENOENT;
-       errno = reply.error();
    }
    else {
        diskCache.deleteCacheValue(filename);
@@ -346,6 +405,7 @@ RPCResponse wiscAFSClient::DeleteFile(const std::string& filename) {
 
    std::cout << "wiscClient: Exiting DeleteFile\n";
    errno = reply.error();
+   sem_post(&clientSem);
    return reply;
 
 }
@@ -403,6 +463,35 @@ RPCResponse wiscAFSClient::OpenDir(const std::string& dirname, const int mode) {
     }
     errno = reply.error();
     std::cout << "wiscClient: Exiting OpenDir\n";
+    return reply;
+}
+
+RPCResponse wiscAFSClient::TruncateFile(const std::string& filename, const int length) {
+
+    std::cout << "wiscClient: Entering TruncateFile\n";
+    RPCResponse reply;
+    ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    if (ccv1 == nullptr){
+        std::cout << "CERROR: wiscClient:TruncateFile: Cache entry does not exist filename = " << filename << std::endl;
+        reply.set_error(errno);
+        reply.set_status(-1);
+        return reply;
+    }
+    else{
+        std::string local_path = (client_path + std::to_string(ccv1->fileInfo.st_ino) + ".tmp").c_str();
+        int trunc_ret = truncate(local_path.c_str(), length);
+        if (trunc_ret == -1){
+            std::cout << "CERROR: wiscClient:TruncateFile: Truncate failed filename = " << filename << std::endl;
+            reply.set_error(errno);
+            reply.set_status(-1);
+            return reply;
+        }
+    }
+
+    // Container for the data we expect from the server.
+
+    reply.set_status(1);
+    std::cout << "wiscClient: Exiting TruncateFile\n";
     return reply;
 }
 
@@ -498,6 +587,7 @@ RPCResponse wiscAFSClient::RemoveDir (const std::string& dirname) {
 
 RPCResponse wiscAFSClient::GetAttr(const std::string& filename) {
    // Data we are sending to the server.
+   sem_wait(&clientSem);
    std::cout << "wiscClient:GetAttr: Entering GetAttr\n";
    ClientCacheValue *ccv = diskCache.getCacheValue(filename);
    RPCRequest request;
@@ -531,6 +621,7 @@ RPCResponse wiscAFSClient::GetAttr(const std::string& filename) {
 
    std::cout << "wiscClient:GetAttr: Exiting GetAttr\n";
    errno = reply.error();
+   sem_post(&clientSem);
    return reply;
  
 }

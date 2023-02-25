@@ -28,10 +28,12 @@ class wiscAFSClient {
 
     DiskCache diskCache;
     std::string client_path = "/tmp/afs/";
+    sem_t clientSem;
     public:
         wiscAFSClient(std::shared_ptr<Channel> channel)
             : stub_(AFSController::NewStub(channel)) {
                 diskCache.loadCache();
+                sem_init(&clientSem, 0, 1);
             }
 
         void setFileInfo(FileInfo*, struct stat);
@@ -69,6 +71,8 @@ class wiscAFSClient {
         RPCResponse Statfs(const std::string& filename);
 
         RPCResponse AccessFile(const std::string& filename, const int mode);
+
+        RPCResponse TruncateFile(const std::string& filename, const int length);
 
         RPCResponse Fcntl(const std::string& path, struct fuse_file_info* fi, int cmd, struct flock *fl);
 
