@@ -183,11 +183,11 @@ class wiscAFSImpl final : public AFSController::Service {
             }
             if (sz < 1024){
                 bytesRead = read(fd, buf, sz);
-                buf[bytesRead] = '\0';
+                //buf[bytesRead] = '\0';
             }
             else{
                 bytesRead = read(fd, buf, 1024);
-                buf[bytesRead] = '\0';
+                //buf[bytesRead] = '\0';
             }
             if(bytesRead == 0){
                 break;

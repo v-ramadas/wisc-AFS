@@ -7,7 +7,7 @@
 int main()
 {
     //int fd = open("/tmp/fs/b.txt", O_CREAT|O_RDWR|O_TRUNC);
-    int fd = open("/tmp/fs/c.txt", O_CREAT|O_RDWR|O_TRUNC);
+    int fd = open("/tmp/fs/c.txt", O_CREAT|O_RDWR|O_TRUNC, 0644);
     char *c = (char*)calloc (100, sizeof(char));
     if (fd == -1) {
         printf("ERROR Could not open file\n");
@@ -29,7 +29,7 @@ int main()
         printf("Read - %s\n", c);
 
         struct stat buffer;
-        int status = lstat("/tmp/fs/b.txt", &buffer);
+        int status = lstat("/tmp/fs/c.txt", &buffer);
         printf("Returned lstat, access time = %ld, modification time = %ld\n ", buffer.st_atime, buffer.st_mtime);
 
         struct statvfs vfs;
@@ -39,7 +39,7 @@ int main()
         sz = pwrite(fd, "44444", 5, 10);
         printf("write sz = %d\n", sz);
 
-        status = lstat("/tmp/fs/b.txt", &buffer);
+        status = lstat("/tmp/fs/c.txt", &buffer);
         printf("Returned lstat after new write, access time = %ld, modification time = %ld\n ", buffer.st_atime, buffer.st_mtime);
 
         close(fd);
