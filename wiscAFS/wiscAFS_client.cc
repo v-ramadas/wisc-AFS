@@ -757,6 +757,35 @@ RPCResponse wiscAFSClient::Chmod(const std::string& filename, int mode) {
     return reply;
 }
 
+RPCResponse wiscAFSClient::Chown(const std::string& filename, uid_t uid, gid_t gid) {
+
+    std::cout << "wiscClient: Entering Chown\n";
+    RPCResponse reply;
+    ClientCacheValue *ccv1 = diskCache.getCacheValue(filename);
+    if (ccv1 == nullptr){
+        std::cout << "CERROR: wiscClient:Chown: Cache entry does not exist filename = " << filename << std::endl;
+        reply.set_error(errno);
+        reply.set_status(-1);
+        return reply;
+    }
+    else{
+        std::string local_path = (client_path + std::to_string(ccv1->fileInfo.st_ino) + ".tmp").c_str();
+        int trunc_ret = chown(local_path.c_str(), uid, gid);
+        if (trunc_ret == -1){
+            std::cout << "CERROR: wiscClient:Chown: Chown failed filename = " << filename << std::endl;
+            reply.set_error(errno);
+            reply.set_status(-1);
+            return reply;
+        }
+    }
+
+    // Container for the data we expect from the server.
+
+    reply.set_status(1);
+    std::cout << "wiscClient: Exiting Chown\n";
+    return reply;
+}
+
 
 
 #ifdef __cplusplus

@@ -77,6 +77,9 @@ class wiscAFSClient {
         RPCResponse Fcntl(const std::string& path, struct fuse_file_info* fi, int cmd, struct flock *fl);
 
         RPCResponse Chmod(const std::string& path, int flags);
+
+        RPCResponse Chown(const std::string& path, uid_t, gid_t );
+
     private:
         std::unique_ptr<AFSController::Stub> stub_;
 };

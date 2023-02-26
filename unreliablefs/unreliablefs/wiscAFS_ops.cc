@@ -366,9 +366,6 @@ int wiscAFS_truncate(const char *path, off_t length)
     
     sem_post(&wiscOPSem);
     return 0;
-
-
-    return 0;
 }
 
 int wiscAFS_access(const char *path, int mode)
@@ -406,13 +403,29 @@ int wiscAFS_rename(const char* oldname, const char* newname) {
 }
 
 int wiscAFS_chmod(const char* path, mode_t mode) {
+    sem_wait(&wiscOPSem);
     std::string s_path = path;
     RPCResponse ret = afsClient->Chmod(s_path, mode);
     if(ret.status() == -1) {
+        sem_post(&wiscOPSem);
         return -ret.error();
     }
+    sem_post(&wiscOPSem);
     return 0;
 }
+
+int wiscAFS_chown(const char *path, uid_t uid, gid_t gid) {
+    sem_wait(&wiscOPSem);
+    std::string s_path = path;
+    RPCResponse ret = afsClient->Chown(s_path, uid, gid);
+    if(ret.status() == -1) {
+        sem_post(&wiscOPSem);
+        return -ret.error();
+    }
+    sem_post(&wiscOPSem);
+    return 0;
+}
+
 
 void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (
