@@ -405,6 +405,15 @@ int wiscAFS_rename(const char* oldname, const char* newname) {
 
 }
 
+int wiscAFS_chmod(const char* path, mode_t mode) {
+    std::string s_path = path;
+    RPCResponse ret = afsClient->Chmod(s_path, mode);
+    if(ret.status() == -1) {
+        return -ret.error();
+    }
+    return 0;
+}
+
 void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (
       grpc::CreateChannel(std::string("10.10.1.2:50051"), grpc::InsecureChannelCredentials()));

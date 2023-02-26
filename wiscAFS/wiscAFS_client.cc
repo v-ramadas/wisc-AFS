@@ -727,6 +727,37 @@ RPCResponse wiscAFSClient::Fcntl(const std::string& path, struct fuse_file_info*
     return reply;
 }
 
+RPCResponse wiscAFSClient::Chmod(const std::string& filename, int mode) {
+    std::cout << "wiscClient: Entering chmod\n";
+    ClientCacheValue *ccv = diskCache.getCacheValue(filename);
+    RPCResponse reply;
+    ClientContext context;
+
+    if (ccv != nullptr) {
+        std::string local_path = (client_path + std::to_string(ccv->fileInfo.st_ino) + ".tmp").c_str();
+        std::cout << "wiscClient:CloseFile: Trying to do fcntl on local file = " << local_path << std::endl;
+        int ret = chmod(filename.c_str(), mode);
+        if (ret == -1) {
+            reply.set_status(-1);
+            reply.set_error(errno);
+        } else {
+            reply.set_status(0);
+        }
+    }
+
+    RPCRequest request;
+    request.set_filename(filename);
+    request.set_mode(mode);
+    Status status = stub_->Chmod(&context, request, &reply);
+
+    if (!status.ok()) {
+        reply.set_status(status.error_code());
+    }
+    std::cout << "wiscClient: Exiting Chmod\n";
+    return reply;
+}
+
+
 
 #ifdef __cplusplus
 }

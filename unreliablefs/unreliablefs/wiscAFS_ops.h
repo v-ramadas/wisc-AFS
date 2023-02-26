@@ -26,6 +26,7 @@ int wiscAFS_truncate(const char *path, off_t length);
 int wiscAFS_access(const char *path, int mode);
 int wiscAFS_rename(const char* , const char*);
 int temp_fn();
+int wiscAFS_chmod(const char *path, mode_t mode);
 
 sem_t wiscOPSem;
 #ifdef __cplusplus

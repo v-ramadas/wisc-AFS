@@ -35,6 +35,7 @@ service AFSController {
   rpc AccessFile (RPCRequest) returns (RPCResponse) {}
   rpc RenameFile (RPCRequest) returns (RPCResponse) {}
   rpc Fcntl (RPCRequest) returns (RPCResponse) {}
+  rpc Chmod (RPCRequest) returns (RPCResponse) {}
 }
 
 message RPCDirReply{
