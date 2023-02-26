@@ -665,6 +665,25 @@ class wiscAFSImpl final : public AFSController::Service {
         return Status::OK;
     }
 
+Status Chmod(ServerContext* context, const RPCRequest* request,  RPCResponse* reply) override {
+    std::cout << "wiscServer: Inside Chmodön";
+    std::string filename = request->filename();
+    int mode = request->mode();
+    
+    int ret = chmod(filename.c_str(), mode);
+
+    if (ret < 0) {
+        std::cout<<"chmod failed with errorön";
+        perror("chmod");
+        reply->set_status(-1);
+        reply->set_error(errno);
+    } else {
+        reply->set_status(1);
+    }
+    std::cout << "wiscServer: Exiting Chmod\n";
+    return Status::OK;
+}
+
 };
 
 
