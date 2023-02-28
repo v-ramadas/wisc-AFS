@@ -8,17 +8,19 @@ import test1_clientA as test1  # Simply do not want to do test1_common
 This is ClientB.
 '''
 
+TEST_DATA_DIR = '/tmp/fs/test_consistency'
+FNAME = f'{TEST_DATA_DIR}/case1'
+
 
 def run_test():
     signal_name_gen = fs_util.get_fs_signal_name()
 
     cur_signal_name = next(signal_name_gen)
     fs_util.record_test_result(test1.TEST_CASE_NO, 'B',
-                               f'START fname:{test1.FNAME}')
+                               f'START fname:{FNAME}')
     fs_util.wait_for_signal(cur_signal_name)
-
     # first execution, read all-zero file
-    if not fs_util.path_exists(test1.FNAME):
+    if not fs_util.path_exists(FNAME):
         fs_util.record_test_result(test1.TEST_CASE_NO, 'B', 'not exist')
         sys.exit(1)
     fd = fs_util.open_file(test1.FNAME)
@@ -42,34 +44,19 @@ def run_test():
     # suppose to flush
     fs_util.close_file(fd)
 
+    last_slash = FNAME.rfind('/') + 1
+    directory = "/tmp/fs/test_consistency"
+    new_name = directory + '/helloworld.txt'
+    ret = os.rename(FNAME, new_name)
+
     last_signal_name = cur_signal_name
     cur_signal_name = next(signal_name_gen)
     fs_util.wait_for_signal(cur_signal_name, last_signal_name=last_signal_name)
+    print(FNAME, "BITCH")
 
-    fd = fs_util.open_file(test1.FNAME)
-    cur_str = fs_util.read_file(fd, 300)
-    if len(cur_str) != 300:
-        fs_util.record_test_result(test1.TEST_CASE_NO, 'B',
-                                   f'read_len:{len(cur_str)}')
-    for idx, c in enumerate(cur_str):
-        if idx < 100:
-            if c != 'a':
-                fs_util.record_test_result(test1.TEST_CASE_NO, 'B',
-                                           f'idx:{idx} c:{c}')
-                sys.exit(1)
-        elif idx < 200:
-            if c != 'b':
-                fs_util.record_test_result(test1.TEST_CASE_NO, 'B',
-                                           f'idx:{idx} c:{c}')
-                sys.exit(1)
-        else:
-            if c != '0':
-                fs_util.record_test_result(test1.TEST_CASE_NO, 'B',
-                                           f'idx:{idx} c:{c}')
-                sys.exit(1)
-    # done
+    print (ret)
+    print ("Hello World")
     fs_util.record_test_result(test1.TEST_CASE_NO, 'B', 'OK')
-    fs_util.wait_for_signal(cur_signal_name, last_signal_name=last_signal_name)
 
 
 if __name__ == '__main__':
