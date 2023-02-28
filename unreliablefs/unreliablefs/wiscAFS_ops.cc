@@ -20,7 +20,7 @@ int wiscAFS_getattr(const char *path, struct stat *buf)
     sem_wait(&wiscOPSem);
     memset(buf, 0, sizeof(struct stat));
     std::string s_path = path;
-    printf("wiscAFS_getattr: Start path = %s, ino = %ld\n", path, buf->st_ino);
+    //printf("wiscAFS_getattr: Start path = %s, ino = %ld\n", path, buf->st_ino);
     RPCResponse ret = afsClient->GetAttr(s_path);
     buf->st_dev = ret.fileinfo().st_dev();
     buf->st_ino = ret.fileinfo().st_ino();
@@ -35,9 +35,9 @@ int wiscAFS_getattr(const char *path, struct stat *buf)
     buf->st_atime = ret.fileinfo().st_atim();
     buf->st_mtime = ret.fileinfo().st_mtim();
     buf->st_ctime = ret.fileinfo().st_ctim();
-    printf("wiscAFS_getattr: End path = %s, ino = %ld\n", path, buf->st_ino);
+    //printf("wiscAFS_getattr: End path = %s, ino = %ld\n", path, buf->st_ino);
     if (ret.status() == -1) {
-        printf("wiscAFS_getattr: Ret status -1, path = %s, ino = %ld\n", path, buf->st_ino);
+        //printf("wiscAFS_getattr: Ret status -1, path = %s, ino = %ld\n", path, buf->st_ino);
         sem_post(&wiscOPSem);
     	return -ret.error();
     }
@@ -48,14 +48,14 @@ int wiscAFS_getattr(const char *path, struct stat *buf)
 int wiscAFS_fgetattr(const char* path, struct stat* buf, struct fuse_file_info* fi)
 {
     if (fi == nullptr){
-        printf("wiscAFS_fgetattr fd null, path = %s\n", path);
+        //printf("wiscAFS_fgetattr fd null, path = %s\n", path);
         return wiscAFS_getattr(path, buf);
     }
     else {
-        printf("wiscAFS_fgetattr fd = %ld, path = %s\n", fi->fh, path);
+        //printf("wiscAFS_fgetattr fd = %ld, path = %s\n", fi->fh, path);
         int ret = fstat((int) fi->fh, buf);
         if (ret == -1) {
-            printf("MYERROR: wiscAFS_fgetattr failed for fd = %ld, path = %s\n", fi->fh, path);
+            //printf("MYERROR: wiscAFS_fgetattr failed for fd = %ld, path = %s\n", fi->fh, path);
             return -errno;
         }
     }
@@ -81,10 +81,10 @@ int wiscAFS_getxattr(const char *path, const char *name, char *value, size_t siz
 int wiscAFS_mkdir(const char *path, mode_t mode)
 {
     std::string s_path = path;
-    printf("wiscAFS_mkdir: path = %s, mode = %d\n", path, mode);
+    //printf("wiscAFS_mkdir: path = %s, mode = %d\n", path, mode);
     RPCResponse ret = afsClient->CreateDir(s_path, mode);
     if (ret.status() == -1) {
-        printf("MYERROR: wiscAFS_mkdir: failed path = %s, mode = %d\n", path, mode);
+        //printf("MYERROR: wiscAFS_mkdir: failed path = %s, mode = %d\n", path, mode);
         return -ret.error();
     }
 
@@ -94,11 +94,11 @@ int wiscAFS_mkdir(const char *path, mode_t mode)
 int wiscAFS_unlink(const char* path)
 {
     sem_wait(&wiscOPSem);
-    printf("wiscAFS_unlink: path = %s\n", path);
+    //printf("wiscAFS_unlink: path = %s\n", path);
     std::string s_path = path;
     RPCResponse ret = afsClient->DeleteFile(s_path);
     if (ret.status() == -1) {
-        printf("MYERROR: wiscAFS_unlink: failed path = %s\n", path);
+        //printf("MYERROR: wiscAFS_unlink: failed path = %s\n", path);
         sem_post(&wiscOPSem);
         return -ret.error();
     }
@@ -108,11 +108,11 @@ int wiscAFS_unlink(const char* path)
 
 int wiscAFS_rmdir(const char* path)
 {
-    printf("wiscAFS_rmdir: path = %s\n", path);
+    //printf("wiscAFS_rmdir: path = %s\n", path);
     std::string s_path = path;
     RPCResponse ret = afsClient->RemoveDir(s_path);
     if (ret.status() == -1) {
-        printf("MYERROR: wiscAFS_rmdir: failed path = %s\n", path);
+        //printf("MYERROR: wiscAFS_rmdir: failed path = %s\n", path);
         return -ret.error();
     }
     
@@ -123,15 +123,15 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 {
     sem_wait(&wiscOPSem);
     std::string s_path = path;
-    printf("wiscAFS_Open: Start path = %s\n", path);
+    //printf("wiscAFS_Open: Start path = %s\n", path);
     RPCResponse ret = afsClient->OpenFile(s_path, fi->flags);
     if (ret.status() == -1) {
         sem_post(&wiscOPSem);
-        printf("MYERROR: wiscAFS_Open: Failed path = %s", path);
+        //printf("MYERROR: wiscAFS_Open: Failed path = %s", path);
         return -ret.error();
     }
     fi->fh = ret.file_descriptor();
-    printf("wiscAFS_Open: End path = %s, fd = %ld\n", path, fi->fh);
+    //printf("wiscAFS_Open: End path = %s, fd = %ld\n", path, fi->fh);
     sem_post(&wiscOPSem);
 
     return 0;
@@ -140,16 +140,16 @@ int wiscAFS_open(const char * path, struct fuse_file_info *fi)
 int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
     sem_wait(&wiscOPSem);
     //fsync(fi->fh);
-    printf("wiscAFS_flush: Start fd = %ld, path = %s\n", fi->fh, path);
+    //printf("wiscAFS_flush: Start fd = %ld, path = %s\n", fi->fh, path);
     close(dup(fi->fh));
     std::string s_path(path);
     RPCResponse ret = afsClient->CloseFile(s_path, false);
     if (ret.status() == -1) {
-        printf("MYERROR: wiscAFS_flush: Failed path= %s, errno = %d\n", path, ret.error());
+        //printf("MYERROR: wiscAFS_flush: Failed path= %s, errno = %d\n", path, ret.error());
         sem_post(&wiscOPSem);
         return -ret.error();
     }
-    printf("wiscAFS_flush: End fd = %ld, path = %s\n", fi->fh, path);
+    //printf("wiscAFS_flush: End fd = %ld, path = %s\n", fi->fh, path);
     sem_post(&wiscOPSem);
     return 0;
 }
@@ -157,7 +157,7 @@ int wiscAFS_flush(const char * path, struct fuse_file_info *fi) {
 int wiscAFS_release(const char * path, struct fuse_file_info *fi) {
     //sem_wait(&wiscOPSem);
     //fsync(fi->fh);
-    printf("wiscAFS_release: Start fd = %ld, path = %s\n", fi->fh, path);
+    //printf("wiscAFS_release: Start fd = %ld, path = %s\n", fi->fh, path);
     close(fi->fh);
     /*std::string s_path(path);
     RPCResponse ret = afsClient->CloseFile(s_path, true);
@@ -181,13 +181,13 @@ int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct
 
     int val;
     sem_getvalue(&wiscOPSem, &val);
-    printf("wiscAFS_read: Semaphore value = %d\n", val);
+    //printf("wiscAFS_read: Semaphore value = %d\n", val);
     RPCResponse reply;
     int fd, ret;
-    printf("wiscAFS_read: Start fd = %ld, Path = %s\n", fi->fh, path);
+    //printf("wiscAFS_read: Start fd = %ld, Path = %s\n", fi->fh, path);
 
     if (fi == NULL) {
-        printf("MYERROR: wiscAFS_read: fi is NULL fd = %ld, Path = %s\n", fi->fh, path);
+        //printf("MYERROR: wiscAFS_read: fi is NULL fd = %ld, Path = %s\n", fi->fh, path);
         //fd = open(path, O_RDONLY);
         reply = afsClient->OpenFile(std::string(path), O_RDONLY);
         fd = reply.file_descriptor();
@@ -198,13 +198,13 @@ int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct
 
     if (fd == -1) {
         sem_post(&wiscOPSem);
-        printf("MYERROR: wiscAFS_read: failed descriptor invalid fd = %d, Path = %s\n", fd, path);
+        //printf("MYERROR: wiscAFS_read: failed descriptor invalid fd = %d, Path = %s\n", fd, path);
         return -errno;
     }
 
     ret = pread(fd, buf, size, offset);
     if (ret == -1) {
-        printf("MYERROR: wiscAFS_read: pread failed for fd = %d, Path = %s\n", fd, path);
+        //printf("MYERROR: wiscAFS_read: pread failed for fd = %d, Path = %s\n", fd, path);
         ret = -errno;
     }
     //printf("wiscAFS_read: buf = %s\n", buf);
@@ -212,7 +212,7 @@ int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct
     if (fi == NULL) {
         close(fd);
     }
-    printf("wiscAFS_read: End fd = %ld, Path = %s\n", fi->fh, path);
+    //printf("wiscAFS_read: End fd = %ld, Path = %s\n", fi->fh, path);
 
     return ret;
 }
@@ -222,10 +222,10 @@ int wiscAFS_write (const char *path, const char *buf, size_t size,
 {
     int val;
     sem_getvalue(&wiscOPSem, &val);
-    printf("wiscAFS_write: Semaphore value = %d\n", val);
+    //printf("wiscAFS_write: Semaphore value = %d\n", val);
     RPCResponse reply; 
 
-    printf("wiscAFS_write: Start fd = %ld, Path = %s, size = %ld\n", fi->fh, path, size);
+    //printf("wiscAFS_write: Start fd = %ld, Path = %s, size = %ld\n", fi->fh, path, size);
     std::string s_path = path;
     /*int ret = error_inject(path, OP_WRITE);
     if (ret == -ERRNO_NOOP) {
@@ -238,7 +238,7 @@ int wiscAFS_write (const char *path, const char *buf, size_t size,
     int fd;
     (void) fi;
     if(fi == NULL) {
-        printf("MYERROR: wiscAFS_write: fi is NULL fd = %ld, Path = %s, size = %ld\n", fi->fh, path, size);
+        //printf("MYERROR: wiscAFS_write: fi is NULL fd = %ld, Path = %s, size = %ld\n", fi->fh, path, size);
         //fd = open(path, O_WRONLY);
         reply = afsClient->OpenFile(s_path, O_WRONLY);
         fd = reply.file_descriptor();
@@ -247,29 +247,29 @@ int wiscAFS_write (const char *path, const char *buf, size_t size,
     }
 
     if (fd == -1) {
-        printf("MYERROR: wiscAFS_write: fd is -1 fd = %d, Path = %s, size = %ld\n", fd, path, size);
+        //printf("MYERROR: wiscAFS_write: fd is -1 fd = %d, Path = %s, size = %ld\n", fd, path, size);
         return -errno;
     }
 
     ret = pwrite(fd, buf, size, offset);
     if (ret == -1) {
-        printf("MYERROR: wiscAFS_write: pwrite failed fd = %d, Path = %s, size = %ld, errno = %d\n", fd, path, size, errno);
+        //printf("MYERROR: wiscAFS_write: pwrite failed fd = %d, Path = %s, size = %ld, errno = %d\n", fd, path, size, errno);
         ret = -errno;
     }
 
     int afsRet = afsClient->WriteFile(s_path);
     if (afsRet == -1) {
-        printf("MYERROR: wiscAFS_write: Client returned -1 fd = %d, Path = %s, size = %ld\n", fd, path, size);
+        //printf("MYERROR: wiscAFS_write: Client returned -1 fd = %d, Path = %s, size = %ld\n", fd, path, size);
         return -errno;
     }
 
     if(fi == NULL) {
         close(fd);
     }
-    printf("wiscAFS_write: End fd = %ld, Path = %s, size = %ld, offset = %ld\nPrinting buf = ", fi->fh, path, size, offset);
-    for (unsigned int k = 0; k < size; k++)
-        printf("%c", buf[k]);
-    printf("\n");
+    //printf("wiscAFS_write: End fd = %ld, Path = %s, size = %ld, offset = %ld\nPrinting buf = ", fi->fh, path, size, offset);
+//    for (unsigned int k = 0; k < size; k++)
+//        printf("%c", buf[k]);
+    //printf("\n");
 
     return ret;
 }
@@ -327,16 +327,16 @@ int wiscAFS_create(const char *path, mode_t mode,
                       struct fuse_file_info *fi)
 {
     sem_wait(&wiscOPSem);
-    printf("wiscAFS_create: Start  Path = %s, mode = %d\n", path, mode);
+    //printf("wiscAFS_create: Start  Path = %s, mode = %d\n", path, mode);
     std::string s_path = path;
     RPCResponse ret = afsClient->CreateFile(s_path, fi->flags, mode);
     if (ret.status() == -1) {
-        printf("MYERROR: wiscAFS_create: Failed to createFile, Path = %s, mode = %d\n", path, mode);
+        //printf("MYERROR: wiscAFS_create: Failed to createFile, Path = %s, mode = %d\n", path, mode);
         sem_post(&wiscOPSem);
         return -ret.error();
     }
     fi->fh = ret.file_descriptor();
-    printf("wiscAFS_create: End Path = %s, mode = %d\n", path, mode);
+    //printf("wiscAFS_create: End Path = %s, mode = %d\n", path, mode);
     sem_post(&wiscOPSem);
 
     return 0;    
@@ -386,16 +386,16 @@ int wiscAFS_access(const char *path, int mode)
 int wiscAFS_rename(const char* oldname, const char* newname) {
 
     sem_wait(&wiscOPSem);
-    printf("wiscAFS_rename: Start  Oldname = %s, newname = %s\n", oldname, newname);
+    //printf("wiscAFS_rename: Start  Oldname = %s, newname = %s\n", oldname, newname);
     std::string s_oldpath = oldname;
     std::string s_newpath = newname;
     RPCResponse ret = afsClient->RenameFile(s_oldpath, s_newpath);
     if (ret.status() == -1) {
-        printf("MYERROR: wiscAFS_rename: End Oldname = %s, newname = %s\n", oldname, newname);
+        //printf("MYERROR: wiscAFS_rename: End Oldname = %s, newname = %s\n", oldname, newname);
         sem_post(&wiscOPSem);
         return -ret.error();
     }
-    printf("wiscAFS_rename: End Oldname = %s, newname = %s\n", oldname, newname);
+    //printf("wiscAFS_rename: End Oldname = %s, newname = %s\n", oldname, newname);
 
     sem_post(&wiscOPSem);
     return 0;
