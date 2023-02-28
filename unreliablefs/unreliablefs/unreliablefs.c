@@ -38,7 +38,7 @@ static struct fuse_operations unreliable_ops = {
     .statfs      = unreliable_statfs,
     .flush       = wiscAFS_flush,
     .release     = wiscAFS_release,
-    .fsync       = unreliable_fsync,
+    .fsync       = wiscAFS_fsync,
 #ifdef HAVE_XATTR
     .setxattr    = unreliable_setxattr,
     .getxattr    = wiscAFS_getxattr,

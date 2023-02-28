@@ -15,6 +15,116 @@
 extern "C" {
 #endif
 
+extern int error_inject(const char* path, fuse_op operation);
+
+void pushQueue(struct queueNode **q,  int op, const char* buf, size_t size, off_t offset, int fd){
+    struct queueNode *newNode = (struct queueNode*)malloc(sizeof(struct queueNode));
+    newNode->op = op;
+    newNode->buf = (char*)malloc(sizeof(char)*(size+1));
+    memcpy(newNode->buf, buf, size);
+    newNode->size = size;
+    newNode->offset = offset;
+    newNode->fd = fd;
+    newNode->next = NULL;
+    struct queueNode *ptr = *q; 
+    if(*q == NULL)	*q = newNode;
+    else
+    {
+        while(ptr->next != NULL) ptr = ptr->next;
+        ptr->next = newNode;
+    }
+}
+
+int findInQueue(struct queueNode **q,  int op){
+	struct queueNode *ptr = *q;
+	int index = 0;
+	if(*q == NULL) {
+        return -1;
+    }
+	while(ptr != NULL)
+	{
+		if(ptr->op == op) 
+			return index;
+		ptr = ptr->next;
+		index++;
+	}
+	return -1;
+}
+
+void delFromQueue(struct queueNode **q, int index)
+{
+	struct queueNode *ptr = *q;
+	struct queueNode *prev = NULL;
+	int pos = 0;
+	if(index == 0)
+	{
+		*q = (*q)->next;
+		//free(ptr);
+		return;
+	}
+	while(ptr!= NULL)
+	{
+		if(pos == index)
+		{
+			prev->next = ptr->next;
+			//free(ptr);
+			return;
+		}
+		prev = ptr;
+		ptr = ptr->next;
+		pos++;
+	}
+	return;
+}
+
+int sizeQueue(struct queueNode **q)
+{
+    struct queueNode *ptr = *q;
+    int count = 0;
+    if(ptr == NULL)
+        return 0;
+    while(ptr != NULL)
+    {
+        ptr = ptr->next;
+        count++;
+    }
+    return count;
+}
+
+void clearQueue(struct queueNode **q)
+{
+    struct queueNode *ptr = *q;
+    if(ptr == NULL)
+        return;
+    while (*q != NULL)
+    {
+        *q = (*q)->next;
+        //free(ptr);
+        ptr = *q;
+    }
+
+}
+void printQueue(struct queueNode *q)
+{
+    struct queueNode *ptr = q;
+    while(ptr!=NULL) {
+        printf("%d,", ptr->op);
+        ptr = ptr->next;
+    }
+    printf("\n");
+}
+struct queueNode* getValueQueue(struct queueNode **q, int index)
+{
+    struct queueNode *ptr = *q;
+    if (ptr == NULL)
+        return NULL;
+    for(int i = 0; i < index; i++)
+    {
+        ptr = ptr->next;
+    }
+    return (ptr);
+}
+
 int wiscAFS_getattr(const char *path, struct stat *buf)
 {
     sem_wait(&wiscOPSem);
@@ -202,7 +312,30 @@ int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct
         return -errno;
     }
 
-    ret = pread(fd, buf, size, offset);
+    int last = -1; 
+    for (int i = 0; i < sizeQueue(&opQueue); i++){
+        struct queueNode *ptr = getValueQueue(&opQueue, i);
+        if (ptr->fd == fd){
+            last = i;
+        }
+    }
+    printf("READ:: last = %d, offset = %ld, size = %ld\n", last, offset,size);
+    if (last == -1){
+        ret = pread(fd, buf, size, offset);
+    }
+    else{
+        struct queueNode *ptr = getValueQueue(&opQueue, last);
+        printf("READ:: last = %d, offset = %ld, size = %ld, ptr->buf = %s, ptr->offset = %ld, ptr->size = %ld\n", last, offset,size, ptr->buf, ptr->offset, ptr->size);
+        if (offset == ptr->offset){
+            printf("READ:: Using queue\n");
+            memcpy(buf, ptr->buf, size);
+            ret = ptr->size;
+        }
+        else{
+            ret = pread(ptr->fd, buf, size, offset);
+        }
+    }
+
     if (ret == -1) {
         printf("MYERROR: wiscAFS_read: pread failed for fd = %d, Path = %s\n", fd, path);
         ret = -errno;
@@ -220,13 +353,26 @@ int wiscAFS_read(const char * path, char *buf, size_t size, off_t offset, struct
 int wiscAFS_write (const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
+    printf("Start of write\n");
+    std::string s_path = path;
+    char *q_buf = (char*)malloc(sizeof(char)*(size+1));
+    memcpy(q_buf, buf, size);
+    pushQueue(&opQueue, OP_WRITE, q_buf, size, offset, fi->fh); 
+    printf("Pushed to queue\n");
+    int afsRet = afsClient->WriteFile(s_path);
+    if (afsRet == -1) {
+        printf("MYERROR: wiscAFS_write: Client returned -1 fd = %ld, Path = %s, size = %ld\n", fi->fh, path, size);
+        return -errno;
+    }
+
+    return size;
+
     int val;
     sem_getvalue(&wiscOPSem, &val);
     printf("wiscAFS_write: Semaphore value = %d\n", val);
     RPCResponse reply; 
 
     printf("wiscAFS_write: Start fd = %ld, Path = %s, size = %ld\n", fi->fh, path, size);
-    std::string s_path = path;
     /*int ret = error_inject(path, OP_WRITE);
     if (ret == -ERRNO_NOOP) {
         return 0;
@@ -257,7 +403,7 @@ int wiscAFS_write (const char *path, const char *buf, size_t size,
         ret = -errno;
     }
 
-    int afsRet = afsClient->WriteFile(s_path);
+    afsRet = afsClient->WriteFile(s_path);
     if (afsRet == -1) {
         printf("MYERROR: wiscAFS_write: Client returned -1 fd = %d, Path = %s, size = %ld\n", fd, path, size);
         return -errno;
@@ -296,6 +442,61 @@ int wiscAFS_statfs(const char *path, struct statvfs *buf)
 
     return 0;
 }
+
+int wiscAFS_fsync(const char *path, int datasync, struct fuse_file_info *fi)
+{
+    printf("FSYNC: Loop  starting , sizeQueue = %d", sizeQueue(&opQueue));
+    struct queueNode *ptr = opQueue;
+    while(sizeQueue(&opQueue) != 0){
+       int ret = error_inject(path, OP_FSYNC);
+       printf("fsync ret = %d\n", ret);
+       int index = 0; 
+       if (ret == -1){
+           //Simple delay
+           ptr = getValueQueue(&opQueue, index);
+           printf("About to write delay %s\n", ptr->buf);
+           int wret = pwrite(ptr->fd, ptr->buf, ptr->size, ptr->offset);
+           if (wret == -1){
+              printf("ERROR WHILE WRITING\n");
+           }
+       }
+       else {
+           //Reorder 
+           index = ret;
+           ptr = getValueQueue(&opQueue, index);
+           printf("About to write reorder %s\n", ptr->buf);
+           int wret = pwrite(ptr->fd, ptr->buf, ptr->size, ptr->offset);
+           if (wret == -1){
+              printf("ERROR WHILE WRITING\n");
+           }
+       }
+       free(ptr->buf);
+       delFromQueue(&opQueue, index);
+    }
+
+    printf("FSYNC: Loop  completed, sizeQueue = %d", sizeQueue(&opQueue));
+
+    /*if (ret == -ERRNO_NOOP) {
+        return 0;
+    } else if (ret) {
+        return ret;
+    }*/
+    int ret;
+    if (datasync) {
+        ret = fdatasync(fi->fh);
+        if (ret == -1) {
+            return -errno;
+        }
+    } else {
+        ret = fsync(fi->fh);
+        if (ret == -1) {
+            return -errno;
+        }
+    }
+
+    return 0;
+}
+
 
 int wiscAFS_opendir(const char *path, struct fuse_file_info *fi)
 {
@@ -429,7 +630,7 @@ int wiscAFS_chown(const char *path, uid_t uid, gid_t gid) {
 
 void *wiscAFS_init(struct fuse_conn_info *conn) {
     afsClient = new wiscAFSClient (
-      grpc::CreateChannel(std::string("10.10.1.2:50051"), grpc::InsecureChannelCredentials()));
+      grpc::CreateChannel(std::string("10.10.1.1:50052"), grpc::InsecureChannelCredentials()));
     sem_init(&wiscOPSem, 0,1);
     return NULL;
 }

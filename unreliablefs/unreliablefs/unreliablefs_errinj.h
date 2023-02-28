@@ -37,6 +37,8 @@ const char *errinj_name[] =
     "errinj_kill_caller",
     "errinj_noop",
     "errinj_slowdown",
+    "errinj_alice_delay",
+    "errinj_alice_reorder",
 };
 
 typedef enum {
@@ -44,6 +46,8 @@ typedef enum {
     ERRINJ_KILL_CALLER,
     ERRINJ_NOOP,
     ERRINJ_SLOWDOWN,
+    ERRINJ_ALICE_DELAY,
+    ERRINJ_ALICE_REORDER,
 } errinj_type;
 
 typedef struct errinj_conf errinj_conf;
@@ -61,5 +65,6 @@ struct errinj_conf {
 };
 
 TAILQ_HEAD(err_inj_q, errinj_conf);
+
 
 #endif /* ERRINJ_HH */

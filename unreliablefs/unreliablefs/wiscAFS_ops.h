@@ -28,6 +28,34 @@ int wiscAFS_rename(const char* , const char*);
 int temp_fn();
 int wiscAFS_chmod(const char *path, mode_t mode);
 int wiscAFS_chown(const char *, uid_t, gid_t);
+int wiscAFS_fsync(const char *path, int datasync, struct fuse_file_info *fi);
+
+struct queueNode{
+    int op;
+    int delay;
+    char* buf;
+    size_t size;
+    off_t offset;
+    int fd;
+    struct queueNode* next;
+};
+
+
+void pushQueue(struct queueNode **q,  int op, const char* buf, size_t size, off_t offset, int fd);
+
+int findInQueue(struct queueNode **q,  int op);
+
+void delFromQueue(struct queueNode **q, int index);
+
+int sizeQueue(struct queueNode **q);
+
+void clearQueue(struct queueNode **q);
+void printQueue(struct queueNode *q);
+struct queueNode* getValueQueue(struct queueNode **q, int index);
+int getMinValueIndexQueue(struct queueNode **q);
+
+struct queueNode *opQueue;
+
 sem_t wiscOPSem;
 #ifdef __cplusplus
 }

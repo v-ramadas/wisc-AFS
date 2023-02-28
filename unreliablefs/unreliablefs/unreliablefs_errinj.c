@@ -13,6 +13,7 @@
 
 #include "conf.h"
 #include "unreliablefs.h"
+#include "wiscAFS_ops.h"
 #include "unreliablefs_errinj.h"
 
 static int rand_range(int, int);
@@ -229,6 +230,34 @@ int error_inject(const char* path, fuse_op operation)
 		perror("nanosleep");
             } else {
 		fprintf(stdout, "end of '%s' slowdown with '%d' ns\n", op_name, err->duration);
+            }
+            break;
+        case ERRINJ_ALICE_DELAY: ;
+	    struct timespec ts_delay = {};
+	    ts_delay.tv_nsec = err->duration;
+            fprintf(stdout, "start of '%s' delay for '%d' ns\n", op_name, err->duration);
+            if (nanosleep(&ts_delay, NULL) != 0) {
+		perror("nanosleep");
+            } else {
+		fprintf(stdout, "end of '%s' delay with '%d' ns\n", op_name, err->duration);
+            }
+            rc = -1;
+            break;
+        case ERRINJ_ALICE_REORDER: ;
+	    struct timespec ts_reorder = {};
+	    ts_reorder.tv_nsec = err->duration;
+            fprintf(stdout, "start of '%s' reorder for '%d' ns\n", op_name, err->duration);
+            if (nanosleep(&ts_reorder, NULL) != 0) {
+		perror("nanosleep");
+            } else {
+		fprintf(stdout, "end of '%s' reorder with '%d' ns\n", op_name, err->duration);
+            }
+            printf("in ERRINJ_ALICE REORDER, sizeQueue = %d \n", sizeQueue(&opQueue));
+            if (sizeQueue(&opQueue) == 1){
+                rc = 0;
+            }
+            else{
+                rc = (rand() % (sizeQueue(&opQueue)));
             }
             break;
         }
