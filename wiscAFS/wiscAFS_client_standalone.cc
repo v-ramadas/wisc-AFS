@@ -18,6 +18,32 @@
 
 
 #include "wiscAFS_client.hh"
+#include <fuse.h>
+#include <dirent.h>
+
+int my_filler(void *buf, const char *name, const struct stat *stbuf, off_t off)
+{
+    // Cast the buffer to a char pointer
+    char *p = (char *)buf;
+
+    // Loop over the buffer to find the end
+    while (*(p++)) {}
+
+    // Add the directory entry to the buffer
+    struct dirent *de = (struct dirent *)p;
+    de->d_ino = stbuf->st_ino;
+    strcpy(de->d_name, name);
+
+    // Update the buffer pointer
+    p += sizeof(struct dirent);
+
+    // Null-terminate the buffer
+    *p = '\0';
+
+    // Return 0 to indicate success
+    return 0;
+}
+
 int main(int argc, char** argv) {
     // Instantiate the client. It requires a channel, out of which the actual RPCs
     // are created. This channel models a connection to an endpoint specified by
@@ -44,39 +70,58 @@ int main(int argc, char** argv) {
             return 0;
         }
     } else {
-        target_str = "10.10.1.2:50051";
+        target_str = "10.10.1.2:50052";
     }
     wiscAFSClient afsClient (
             grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
     std::string filename("a.txt");
     std::string dirname("dir1");
-    std::string path("/users/vramadas/a.txt");
+    std::string path1("/users/vramadas/test.txt");
+    std::string path2("/users/vramadas/delete.txt");
+    std::string path3("/tmp");
     std::string data("asdafgdf\nssfdlkjgdgklfg\n");
-    int flags = O_CREAT| O_RDONLY;
+    int flags = O_RDONLY | O_APPEND;
     int mode = S_IRWXU;
     int dirmode = 700;
     std::cout << "Sending OpenFile\n" ;
-    int reply = afsClient.OpenFile(path, flags);
-    std::cout << "Reply = " << reply << std::endl;
+    RPCResponse reply = afsClient.OpenFile(path1, flags);
+    std::cout << "Reply = " << reply.file_descriptor() << std::endl;
+    std::string path("/tmp/fs/adirect1");
+    std::cout << "Sending OpenFile\n" ;
+    char buf[1024];
+    int buflen = sizeof(buf);
+
+    char bufiller[1024];
+    memset(bufiller, 0, 1024);
+    struct stat stbuf;
+    stbuf.st_ino = 1;  // Set the inode number to 1
+    stbuf.st_mode = S_IFDIR | 0755;  // Set the file mode to indicate a directory
+    my_filler(buf, "my_dir", &stbuf, 0);
+    afsClient.CreateDir(path, 0777);
+    RPCDirReply dir_reply = afsClient.ReadDir(path,buf,my_filler);
+    std::cout << "ABN" << buf[0] << "\n";
+    std::cout << std::endl << dir_reply.status();
 //    std::cout << "Data recieved : " << reply.data() << " Received attr size: " << reply.rpcattr().filesize() << " Received attr atime: " << reply.rpcattr().atime() << " Received attr mtime: " << reply.rpcattr().mtime() << std::endl;
 
-    /*std::cout << "Sending CreateFile\n" ;
-      reply = afsClient.CreateFile(filename, path, mode);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+    std::cout << "Sending CreateFile\n" ;
+      reply = afsClient.OpenFile(path2, O_CREAT);
+      std::cout << "Response recieved : " << reply.file_descriptor() << std::endl;
 
       std::cout << "Sending GetAttr\n" ;
-      reply = afsClient.GetAttr(filename, path);
-      std::cout << "Data recieved : " << reply.rpcattr().filesize() << std::endl;
+      RPCResponse response  = afsClient.GetAttr(path1);
 
+    std::cout << " FileAttr : " << response.fileinfo().st_size() <<  " : " << response.fileinfo().st_ino() << " : " << response.fileinfo().st_atim() << "\n";
       std::cout << "Sending CloseFile\n" ;
-      reply = afsClient.CloseFile(filename, path, data);
+      reply = afsClient.CloseFile(path1, true);
       std::cout << "Response recieved : " << reply.status() << std::endl;
 
       std::cout << "Sending DeleteFile\n" ;
-      reply = afsClient.DeleteFile(filename, path);
-      std::cout << "Response recieved : " << reply.status() << std::endl;
+      afsClient.DeleteFile(path2);
 
-      std::cout << "Sending CreateDir\n" ;
+      std::cout << "Sending StatFS\n";
+      RPCResponse statfs_res = afsClient.Statfs(path3);
+      std::cout << "Response recieved : " << statfs_res.statfs().f_bavail();
+      /*std::cout << "Sending CreateDir\n" ;
       reply = afsClient.CreateDir(dirname, path, dirmode);
       std::cout << "Response recieved : " << reply.status() << std::endl;
 

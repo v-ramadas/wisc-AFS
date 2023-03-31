@@ -54,6 +54,7 @@ add_library(wiscAFS_grpc_proto SHARED
     cache/ClientCache.h
     wiscAFS_client.hh
     wiscAFS_client.cc)
+target_compile_options (wiscAFS_grpc_proto PRIVATE -D_FILE_OFFSET_BITS=64)
 target_link_libraries(wiscAFS_grpc_proto
   ${_REFLECTION}
   ${_GRPC_GRPCPP}
@@ -64,6 +65,7 @@ foreach(_target
 		wiscAFS_client_standalone wiscAFS_server 
   )
   add_executable(${_target} "${_target}.cc")
+  target_compile_options(${_target} PRIVATE -D_FILE_OFFSET_BITS=64)
   target_link_libraries(${_target}
 	  wiscAFS_grpc_proto
     ${_REFLECTION}

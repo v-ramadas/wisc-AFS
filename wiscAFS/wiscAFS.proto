@@ -21,16 +21,37 @@ package wiscAFS;
 // The greeting service definition.
 service AFSController {
   // Sends a greeting
-  rpc OpenFile (RPCRequest) returns (RPCResponse) {}
-  rpc CloseFile (RPCRequest) returns (RPCResponse) {}
+  rpc OpenFile (RPCRequest) returns (stream RPCResponse) {}
+  rpc CloseFile (stream RPCRequest) returns (RPCResponse) {}
   rpc CreateFile (RPCRequest) returns (RPCResponse) {}
   rpc DeleteFile (RPCRequest) returns (RPCResponse) {}
   rpc CreateDir (RPCRequest) returns (RPCResponse) {}
   rpc RemoveDir (RPCRequest) returns (RPCResponse) {}
   rpc GetAttr (RPCRequest) returns (RPCResponse) {}
+  rpc StatFS (RPCRequest) returns (RPCResponse) {}
   rpc OpenDir (RPCRequest) returns (RPCResponse) {}
-  rpc ReadDir (RPCRequest) returns (RPCResponse) {}
+  rpc ReadDir (RPCRequest) returns (stream RPCDirReply) {}
+  rpc GetXAttr (RPCRequest) returns (RPCResponse) {}
+  rpc AccessFile (RPCRequest) returns (RPCResponse) {}
+  rpc RenameFile (RPCRequest) returns (RPCResponse) {}
+  rpc Fcntl (RPCRequest) returns (RPCResponse) {}
+  rpc Chmod (RPCRequest) returns (RPCResponse) {}
+}
 
+message RPCDirReply{
+    uint32 dino  =1; 
+    string dname = 2;
+    uint32 dtype = 3;
+    int32 error = 4;
+    int32 status = 5;
+}
+
+message FileLock {
+    uint32 l_type = 1;
+    uint32 l_whence = 2;
+    uint32 l_start = 3;
+    uint32 l_len = 4;
+    uint32 l_pid = 5;
 }
 
 // The request message containing the user's name.
@@ -39,20 +60,54 @@ message RPCRequest {
   string path = 2;
   int32 mode = 3;
   int32 flags = 4;
-  string data = 5;
+  bytes data = 5;
   int32 fileDescriptor = 6;
+  uint64 fileSize = 7;
+  optional string xattr_name = 8;
+  optional string xattr_value = 9;
+  optional int32 xattr_size = 10;
+  optional string newfilename = 11;
+  optional FileLock filelock = 12;
 }
 
-message RPCAttr {
-    int32 filesize = 1;
-    int64 atime = 2;
-    int64 mtime = 3;
+message FileInfo {
+    int32 st_dev = 1;
+    int32 st_ino = 2;
+    int32 st_mode = 3;
+    int32 st_nlink = 4;
+    int32 st_uid = 5;
+    int32 st_gid = 6;
+    int32 st_rdev = 7;
+    int64 st_size = 8;
+    int64 st_blksize = 9;
+    int64 st_blocks = 10;
+    int64 st_atim = 11;
+    int64 st_mtim = 12;
+    int64 st_ctim = 13;
+}
+
+message Statfs {
+    uint32 f_favail = 1;
+    uint64 f_bsize = 2;
+    uint32 f_blocks = 3;
+    uint32 f_bfree = 4;
+    uint32 f_bavail = 5;
+    uint32 f_files = 6;
+    uint32 f_ffree = 7;
+    uint64 f_fsid = 8;
+    uint64 f_namemax = 9;
+    uint64 f_frsize = 10;
+    uint64 f_flag = 11;
 }
 
 message RPCResponse {
   int32 status = 1;
-  string data = 2;
-  int32 inode = 3;
-  optional RPCAttr rpcAttr = 4;
-
+  int32 error = 2;
+  bytes data = 3;
+  int64 fileSize = 4;
+  optional FileInfo fileInfo = 5;
+  optional Statfs statfs = 6;
+  optional string xattr_value = 8;
+  optional int32 xattr_size = 9;
+  optional int32 file_descriptor = 10;
 }

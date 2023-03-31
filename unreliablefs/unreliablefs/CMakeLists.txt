@@ -30,7 +30,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE ../../wiscAFS/cmake/build)
 #target_link_libraries(${PROJECT_NAME} ${FUSE_LIBRARIES} ${WISCAFS_LIB} ${_REFLECTION} ${_PROTOBUF_LIBPROTOBUF} ${_GRPC_GRPCPP})
 #target_link_directories(${PROJECT_NAME} PRIVATE ${HOME_PATH}/wiscAFC/cmake/build)
 
-target_compile_options(${PROJECT_NAME} PUBLIC -D_FILE_OFFSET_BITS=64 -Wall -Wextra -Wno-unused-parameter)
+target_compile_options(${PROJECT_NAME} PUBLIC -D_FILE_OFFSET_BITS=64 -Wall -Wextra -Wno-unused-parameter -lpthread -lrt)
 target_compile_options(${PROJECT_NAME} PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14 -D_FILE_OFFSET_BITS=64>)
 
 check_function_exists(fallocate HAVE_FALLOCATE)

@@ -30,36 +30,79 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
-
+#include <sys/vfs.h>
+#include <sys/statvfs.h>
+#include <sys/xattr.h>
+#include <dirent.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
+using grpc::ServerWriter;
+using wiscAFS::RPCDirReply;
 using grpc::Status;
 using wiscAFS::AFSController;
 using wiscAFS::RPCRequest;
 using wiscAFS::RPCResponse;
-using wiscAFS::RPCAttr;
+using wiscAFS::FileInfo;
+using wiscAFS::Statfs;
+using grpc::ServerReader;
+using grpc::ServerWriter;
 
 
 // Logic and data behind the server's behavior.
 class wiscAFSImpl final : public AFSController::Service {
-    Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
+
+    void setFileInfo(FileInfo* fileInfo, struct stat info) {
+        fileInfo->set_st_dev(info.st_dev);
+        fileInfo->set_st_ino(info.st_ino);
+        fileInfo->set_st_mode(info.st_mode);
+        fileInfo->set_st_nlink(info.st_nlink);
+        fileInfo->set_st_uid(info.st_uid);
+        fileInfo->set_st_gid(info.st_gid);
+        fileInfo->set_st_rdev(info.st_rdev);
+        fileInfo->set_st_size(info.st_size);
+        fileInfo->set_st_blksize(info.st_blksize);
+        fileInfo->set_st_blocks(info.st_blocks);
+        fileInfo->set_st_atim(info.st_atim.tv_nsec);
+        fileInfo->set_st_mtim(info.st_mtim.tv_nsec);
+        fileInfo->set_st_ctim(info.st_ctim.tv_nsec);
+    }
+
+    void setStatFS(Statfs* statFS, struct statvfs info) {
+        statFS->set_f_bsize(info.f_bsize);
+        statFS->set_f_frsize(info.f_frsize);
+        statFS->set_f_blocks(info.f_blocks);
+        statFS->set_f_bfree(info.f_bfree);
+        statFS->set_f_bavail(info.f_bavail);
+        statFS->set_f_favail(info.f_favail);
+        statFS->set_f_files(info.f_files);
+        statFS->set_f_ffree(info.f_ffree);
+        statFS->set_f_fsid(info.f_fsid);
+        statFS->set_f_namemax(info.f_namemax);
+        statFS->set_f_flag(info.f_flag);
+    }
+
+   /* Status OpenFile(ServerContext* context, const RPCRequest* request,RPCResponse* reply) override {
         // Error handle the path and filename
         std::string filename = request->filename();
         int flags = request->flags();
         std::ifstream f(filename);
         struct stat file_info;
 
+        std::cout << "WiscServer: Entering OpenFile\n";
+
         int fd = open((filename).c_str(), flags);
         std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
         if (fd < 0)
             std::cout << "Cannot open file " << filename << std::endl;
-        RPCAttr *rpcAttr = new RPCAttr;
+        FileInfo *fileInfo = new FileInfo;
         if (fd != -1) {
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
+                reply->set_error(errno);
+                std::cout << "WiscServer: Exiting OpenFile\n";
                 return Status::OK;
             }
 
@@ -67,7 +110,7 @@ class wiscAFSImpl final : public AFSController::Service {
             int sz = lseek(fd, 0L, SEEK_END);
             lseek(fd, 0L, SEEK_SET);
             char *buffer = new char[sz];
-            std::cout << "size = " << sz << std::endl;
+            std::cout << "wiscServer:OpenFile: size = " << sz << std::endl;
             if(sz == 0){
                 reply->set_data("");
             }
@@ -79,15 +122,11 @@ class wiscAFSImpl final : public AFSController::Service {
            // std::string obuffer = buffer;
 
             //Set all attrs
-            rpcAttr->set_filesize(sz);
-            rpcAttr->set_atime(file_info.st_atime);
-            rpcAttr->set_mtime(file_info.st_mtime);
+            setFileInfo(fileInfo, file_info);
             //Populate reply
-            // reply->set_data(obuffer);
-            reply->set_allocated_rpcattr(rpcAttr);
+            //reply->set_data(obuffer);
+            reply->set_allocated_fileinfo(fileInfo);
             reply->set_status(1);
-            reply->set_inode(file_info.st_ino);
-
             close(fd);
 
         }
@@ -95,61 +134,311 @@ class wiscAFSImpl final : public AFSController::Service {
             reply->set_status(-1);
         }
 
-        return Status::OK;
-    }
+        reply->set_error(errno);
+        std::cout << "WiscServer: Exiting OpenFile\n";
 
-    Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
-        std::string newContent = request->data();
-        std::string fileName = request->filename();
-        std::string curfileName = (fileName).c_str();
-        std::string tmp_filename = (fileName + ".tmp").c_str();
-        // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
-        std::cout << " Inside CloseFile!" << std::endl;
-        //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
-        int fileDescriptor = request->filedescriptor();
-        close(fileDescriptor);
-        if (fileDescriptor != -1) {
-            //TEMP FILE
-            ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
-            if (writeResult == -1) {
-                reply->set_status(-1);
-                close(fileDescriptor);
-                unlink(tmp_filename.c_str());
-                return Status::OK;
-            }
-            int closeResult = close(fileDescriptor);
-            if(closeResult == -1){
-                reply->set_status(-1);
-                return Status::OK;
-            }
-            if (rename(tmp_filename.c_str(), fileName.c_str()) == -1) {
-                unlink(tmp_filename.c_str());
-                 return Status::OK;
-            }
-            reply->set_status(1);
-        }
-        else{
-            reply->set_status(-1);
-        }
         return Status::OK;
-    }
-    /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
-     Status CreateFile(ServerContext* context, const RPCRequest* request,
-             RPCResponse* reply) override {
+    }*/
+
+    Status OpenFile(ServerContext* context, const RPCRequest* request,ServerWriter<RPCResponse>* writer) override {
+        // Error handle the path and filename
         std::string filename = request->filename();
         int flags = request->flags();
         std::ifstream f(filename);
         struct stat file_info;
+        RPCResponse reply;
+
+        //std::cout << "WiscServer: Entering OpenFile\n";
 
         int fd = open((filename).c_str(), flags);
-        std::cout << "Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
-        if (fd < 0)
-            std::cout << "Cannot create file " << filename << std::endl;
-        RPCAttr *rpcAttr = new RPCAttr;
+        //std::cout << "wiscServer:OpenFile: Printing filename,  fd, and flags " << filename << " " << fd << " " << flags << std::endl;
+        if (fd < 0){
+            reply.set_status(-1);
+            reply.set_error(errno);
+            //std::cout << "wiscServer: OpenFile: Cannot open file " << filename << std::endl;
+            return Status::OK;
+        }
+        
+        FileInfo *fileInfo = new FileInfo;
+        if (fstat(fd, &file_info) == -1) {
+                reply.set_status(-1);
+                reply.set_error(errno);
+                //std::cout << "WiscServer: OpenFile: Cannot fstat exiting OpenFile\n";
+                return Status::OK;
+        }
+        setFileInfo(fileInfo, file_info);
+        reply.set_allocated_fileinfo(fileInfo);
+
+//        int sz = lseek(fd, 0L, SEEK_END);
+//        fseek(fd, 0L, SEEK_END);
+//        int sz = ftell(p);
+//        fseek(fd, 0L, SEEK_SET);
+        struct stat st;
+        fstat(fd, &st);
+        int sz = st.st_size;
+        //std::cout << "wiscServer:OpenFile: total size = " << sz << " with fd " << fd << std::endl;
+        if (fd < 0){
+            reply.set_status(-1);
+            reply.set_error(errno);
+            //std::cout << "wiscServer: OpenFile: Cannot open file " << filename << std::endl;
+            return Status::OK;
+        }
+
+        while(1){
+            char *buf = new char[2048];
+            int bytesRead;
+            if (sz == 0){
+                reply.set_data("");
+                reply.set_filesize(0);
+                writer->Write(reply);
+                break;
+            }
+            if (sz < 1024){
+                bytesRead = read(fd, buf, sz);
+
+                //std::cout << "wiscServer: Reading size " << bytesRead << std::endl;
+            }
+            else{
+                bytesRead = read(fd, buf, 1024);
+                sz -= 1024;
+
+/*                //buf[bytesRead] = '\0';
+            }
+            else{
+                bytesRead = read(fd, buf, 1024);
+                //buf[bytesRead] = '\0';
+            }
+            if(bytesRead == 0){
+                break;
+*/
+            }
+
+            if(bytesRead == -1){
+                //std::cout << "ERROR: wiscServer: OpenFile:Cannot read file " << filename << " with fd " << fd << std::endl;
+                //perror("read");
+                //std::cout << "ERROR: errno = " << errno << std::endl;
+                reply.set_status(-1);
+                reply.set_error(errno);
+                return Status::OK;
+            }
+
+            //buf[bytesRead] = '\0';
+            if(bytesRead == 0){
+                break;
+            }
+
+            //std::cout << "wiscServer: Reading size " << bytesRead << std::endl;
+            reply.set_data(std::string(buf, bytesRead));
+            reply.set_filesize(bytesRead);
+            writer->Write(reply);
+            free(buf);
+        }
+     
+        close(fd);
+        //std::cout << "WiscServer: Exiting OpenFile\n";
+        reply.set_status(1);
+
+        return Status::OK;
+    }
+
+    // Status CloseFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+    //     //void *newContent; 
+    //     //newContent = (void*)malloc(1025);
+    //     //memcpy(newContent, (void*)request->data(), 1024);
+    //     std::string newContent = request->data();
+    //     std::string fileName = request->filename();
+    //     std::string curFileName = (fileName);
+    //     std::string tmpFileName = (fileName + ".tmp");
+    //     std::cout << " Inside CloseFile!" << std::endl;
+    //     std::cout << " newContent = " << newContent << std::endl;
+    //     std::cout << "curFileName =  " <<  curFileName << std::endl;
+    //     std::cout << "tmpFileName =  " << tmpFileName << std::endl;
+    //     // Check cache to see if the client exists - if so open the file and write the entire content and close it and update the cache, if not ignore the write
+    //     int tfd = open(tmpFileName.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
+    //     if (tfd == -1) {
+    //         std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
+    //     }
+    //     unsigned long int fileSize = request->filesize();
+    //     std::cout << "wiscSerer: CloseFile: FileSize = " << fileSize << std::endl;
+    //     int sz = write(tfd, newContent.c_str(), fileSize);
+    //     //std::cout << "wiscServer:CloseFIle: newContent.strlen() == " << strlen(newContent.c_str());
+    //     if(sz < 0) {
+    //         std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
+    //     }
+    //     close(tfd);
+    //     int ret = rename (tmpFileName.c_str(), curFileName.c_str());
+    //     if (ret < 0) {
+    //         std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status\n";
+    //         reply->set_status(-1);
+    //         return Status::OK;
+    //     }
+    //     else{
+    //         std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
+    //         unlink(tmpFileName.c_str());
+    //         reply->set_status(0);
+    //         return Status::OK;
+    //     }
+
+
+    //     //int fileDescriptor = open(tmp_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+    //     /*int fileDescriptor = request->filedescriptor();
+    //     close(fileDescriptor);
+    //     if (fileDescriptor != -1) {
+    //         //TEMP FILE
+    //         ssize_t writeResult = write(fileDescriptor, newContent.c_str(), newContent.size());
+    //         if (writeResult == -1) {
+    //             reply->set_status(-1);
+    //             reply->set_error(errno);
+    //             close(fileDescriptor);
+    //             unlink(tmp_filename.c_str());
+    //             std::cout << "wiscServer: Exiting CloseFile\n";
+    //             return Status::OK;
+    //         }
+    //         int closeResult = close(fileDescriptor);
+    //         if(closeResult == -1){
+    //             reply->set_status(-1);
+    //             reply->set_error(errno);
+    //             std::cout << "wiscServer: Exiting CloseFile\n";
+    //             return Status::OK;
+    //         }
+    //         if (rename(tmp_filename.c_str(), fileName.c_str()) == -1) {
+    //             unlink(tmp_filename.c_str());
+    //             std::cout << "wiscServer: Exiting CloseFile\n";
+    //             return Status::OK;
+    //         }
+    //         reply->set_status(1);
+    //     }
+    //     else{
+    //         reply->set_status(-1);
+    //     }
+    //     reply->set_error(errno);
+    //     std::cout << "wiscServer: Exiting CloseFile\n";
+    //     return Status::OK;*/
+    // }
+
+
+    Status CloseFile(ServerContext* context, ServerReader<RPCRequest>* reader, RPCResponse* reply) override {
+        int fd, res;
+        bool firstReq = true;
+        std::string path, tempPath;
+        RPCRequest request;
+        //std::cout << "wiscServer: CloseFile entereed\n";
+        struct stat file_info;
+        while (reader->Read(&request)) {
+            if(firstReq){
+                //tempPath = (path + "_" + std::to_string(rand() % 101743) + ".tmp");
+                path = request.filename();
+                //std::cout << "wiscServer: CloseFile Printing data for filename " << path << "\n";
+                int ret_stat = lstat(path.c_str(), &file_info);
+                if (ret_stat< -1){
+                    //std::cout << "wiscServer:CloseFIle: Failed to lstat original file in server\n";
+                    reply->set_status(-1);
+                    reply->set_error(errno);
+                    return Status::OK;
+                }
+                tempPath = (path + ".ttmmpp");
+                //std::cout << "wiscServer:CloseFile: opening temp file" << tempPath << std::endl;
+                fd = open(tempPath.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0777);
+                if(fd == -1){
+                    //std::cout << "wiscServer:CloseFIle: Failed to open tmp file\n";
+                    reply->set_status(-1);
+                    reply->set_error(errno);
+                    return Status::OK;
+                }
+                firstReq = false;
+            }
+
+            //std::cout << "wiscServer:CloseFile : Writing data - " << request.data() << std::endl;
+            const char *data = request.data().c_str();
+//            std::cout << "packet size = " << request.filesize() << std::endl;
+//            for (int k = 0; k < request.filesize(); k++){
+//                std::cout << data[k] ;
+//            }
+            //std::cout << "\n";
+            res = write(fd, request.data().c_str(), request.filesize());
+            if(res == -1){
+                //std::cout << "wiscServer:CloseFile: Writing to tmp file failed\n";
+                close(fd);
+                reply->set_status(-1);
+                reply->set_error(errno);
+                return Status::OK;
+            }
+        }
+
+        //fsync(fd);
+        //std::cout << "wiscServer: Closing fd = " << fd << ", path = " << tempPath << std::endl;
+        close(fd);
+
+        /*int ret_chmod = chmod(path.c_str(), file_info.st_mode);
+        if (ret_chmod < 0) {
+            std::cout << "wiscServer:CloseFIle: chmod failed, returning bad status with error " << errno << "\n";
+            reply->set_status(-1);
+            reply->set_error(errno);
+        }*/
+        int ret = rename (tempPath.c_str(), path.c_str());
+        if (ret < 0) {
+            //std::cout << "wiscServer:CloseFIle: Rename failed, returning bad status with error " << errno << "\n";
+            reply->set_status(-1);
+            reply->set_error(errno);
+            //return Status::OK;
+        }
+        else{
+            //std::cout << "wiscServer:CloseFIle: Rename success, returning status\n";
+            unlink(tempPath.c_str());
+            reply->set_status(0);
+            //TODO REMOVED chmod DELIBERATELY
+            /*int ret_chmod = chmod(path.c_str(), file_info.st_mode);
+            if (ret_chmod < 0) {
+                std::cout << "wiscServer:CloseFIle: chmod failed, returning bad status with error " << errno << "\n";
+                reply->set_status(-1);
+                reply->set_error(errno);
+            }*/
+            //return Status::OK;
+        }
+        //reply->set_status(1);
+        return Status::OK;
+    }
+
+    Status RenameFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        std::string oldname = request->filename();
+        std::string newname = request->newfilename();
+        int ret = rename(oldname.c_str(), newname.c_str());
+        if (ret == -1) {
+            reply->set_status(-1);
+            reply->set_error(errno);
+            //std::cout << "WiscServer: RenameFile Failed\n";
+            return Status::OK;
+        }
+        reply->set_status(1);
+        return Status::OK;
+    }
+
+    /* Generally CreateFile would create a file if it doesn't exisit or overtie the file into a new file, here we will reply on first implementation only for now.*/
+     Status CreateFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        // Error handle the path and filename
+        std::string filename = request->filename();
+        int flags = request->flags();
+        int mode = request->mode();
+        std::ifstream f(filename);
+        struct stat file_info;
+
+        //std::cout << "WiscServer: Entering CreateFile\n";
+
+        int fd = open((filename).c_str(), flags, mode);
+        //std::cout << "wiscServer:CreateFilePrinting filename,  fd, flags, mode " << filename << ", " << fd << ", " << flags << ", " <<  mode << std::endl;
+        if (fd < 0){
+            //std::cout << "ERROR: Cannot open file " << filename << std::endl;
+            reply->set_status(-1);
+            reply->set_error(errno);
+            return Status::OK;
+        }
+        FileInfo *fileInfo = new FileInfo;
         if (fd != -1) {
             //Call get Attribute 
             if (fstat(fd, &file_info) == -1) {
                 reply->set_status(-1);
+                reply->set_error(errno);
+                //std::cout << "WiscServer:CreateFile fstat failed\n";
                 return Status::OK;
             }
 
@@ -157,7 +446,7 @@ class wiscAFSImpl final : public AFSController::Service {
             int sz = lseek(fd, 0L, SEEK_END);
             lseek(fd, 0L, SEEK_SET);
             char *buffer = new char[sz];
-            std::cout << "size = " << sz << std::endl;
+            //std::cout << "wiscServer:CreateFile: size = " << sz << std::endl;
             if(sz == 0){
                 reply->set_data("");
             }
@@ -169,15 +458,11 @@ class wiscAFSImpl final : public AFSController::Service {
            // std::string obuffer = buffer;
 
             //Set all attrs
-            rpcAttr->set_filesize(sz);
-            rpcAttr->set_atime(file_info.st_atime);
-            rpcAttr->set_mtime(file_info.st_mtime);
+            setFileInfo(fileInfo, file_info);
             //Populate reply
-            // reply->set_data(obuffer);
-            reply->set_allocated_rpcattr(rpcAttr);
+            //reply->set_data(obuffer);
+            reply->set_allocated_fileinfo(fileInfo);
             reply->set_status(1);
-            reply->set_inode(file_info.st_ino);
-
             close(fd);
 
         }
@@ -185,74 +470,219 @@ class wiscAFSImpl final : public AFSController::Service {
             reply->set_status(-1);
         }
 
-        return Status::OK;
-     }
+        reply->set_error(errno);
+        //std::cout << "WiscServer:CreateFile: Exiting OpenFile\n";
 
-    //Handle cache
-
-    Status DeleteFile(ServerContext* context, const RPCRequest* request,
-            RPCResponse* reply) override {
-        std::string fileName = request->data();
-        int unlinkResult = unlink((fileName).c_str());
-        if (unlinkResult != -1) {
-            reply->set_status(-1);
-            return Status::OK;
-        }  
-        reply->set_status(1);
         return Status::OK;
     }
 
     Status RemoveDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::string dirName = request->data();
+        //std::cout << "wiscServer: Entering RemoveDir\n";
+        std::string dirName = request->filename();
         int result = rmdir((dirName).c_str());
         if (result == -1) {
             reply->set_status(-1);
-            return Status::OK;
+        } else {
+            reply->set_status(1);
         }
-        reply->set_status(1);
+        reply->set_error(errno);
+        //std::cout << "wiscServer: Exiting RemoveDir\n";
         return Status::OK;
 
     }
 
     Status CreateDir(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::cout << " Inside CreateDir" << std::endl;
-        std::string dirName = request->data();
+        //std::cout << "wiscServer:CreateDir: Inside CreateDir" << std::endl;
+        std::string dirName = request->filename();
         int mode = request->mode();
+        //std::cout << "mkdir with dirname = " << dirName << "mode = " << mode << std::endl;
         int result = mkdir((dirName).c_str(), mode);
         if (result == -1) {
+            //std::cout << "wiscServer:CreateDir: mkdir failed" << std::endl;
             reply->set_status(-1);
+            reply->set_error(errno);
+            return Status::OK;
+        } else {
+            reply->set_status(1);
+        }
+        reply->set_error(errno);
+        //std::cout << "wiscServer:CreateDir: Exiting RemoveDir\n";
+        return Status::OK;
+    }
+
+    Status DeleteFile(ServerContext* context, const RPCRequest* request,
+            RPCResponse* reply) override {
+        //std::cout << "wiscServer:DeleteFile: Inside DeleteFile" << std::endl;
+        std::string filename = request->filename();
+        //std::cout << "file with filename = " << filename << std::endl;
+        int result = unlink((filename).c_str());
+        if (result == -1) {
+            //std::cout << "wiscServer:DeleteFile: DeleteFile failed" << std::endl;
+            reply->set_status(-1);
+            reply->set_error(errno);
+            return Status::OK;
+        } else {
+            reply->set_status(1);
+        }
+        //std::cout << "wiscServer:DeleteFile: Exiting DeleteFile\n";
+        return Status::OK;
+    }
+
+    // Status OpenDir(ServerContext* context, const RPCRequest* request,
+    //         RPCResponse* reply) override {
+        
+    //     std::string dirName = request->filename();
+    //     reply->set_data("Hello + " + dirName);
+    //     DIR* result = opendir((dirName).c_str());
+    //     if (result == nullptr) {
+    //         reply->set_status(errno);
+    //         return Status::OK;
+    //     }
+    //     reply->set_status(1);
+    //     reply->set_pointer(result);
+    //     return Status::OK;
+    // }
+
+    Status AccessFile(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+     
+        std::string filename = request->filename();
+        int ret = access(filename.c_str(), request->mode());
+        if (ret == -1){
+            //std::cout <<"wiscServer:AccessFile: Access issue with the file, retuning errno and -1\n";
+            reply->set_status(-1);
+            reply->set_error(errno);
             return Status::OK;
         }
         reply->set_status(1);
         return Status::OK;
     }
+
+    Status ReadDir(ServerContext* context, const RPCRequest* request,
+		  ServerWriter<RPCDirReply>* writer) override {
+
+		DIR *dp;
+		struct dirent *de;
+		RPCDirReply reply;
+
+		dp = opendir((request->filename()).c_str());
+		if (dp == NULL){
+			//std::cout<<"opendir dp null"<<std::endl;
+            //perror(strerror(errno));
+			reply.set_error(errno);
+            reply.set_status(-1);
+		    writer->Write(reply);
+            return grpc::Status::OK;
+		}
+
+		while((de = readdir(dp)) != NULL){
+            //std::cout<< "Directory names seen from the server " << de->d_name;
+		    reply.set_dino(de->d_ino);
+		    reply.set_dname(de->d_name);
+		    reply.set_dtype(de->d_type);
+            reply.set_status(1);
+		    writer->Write(reply);
+		}
+		reply.set_error(0);
+        closedir(dp);
+        reply.set_status(1);
+		return Status::OK;
+  }
+
+
 
     Status GetAttr(ServerContext* context, const RPCRequest* request,
             RPCResponse* reply) override {
-        std::string filename = request->data();
-        RPCAttr * rpcAttr;// =  reply->mutable_data();
-        int file_descriptor = open((filename).c_str(), O_RDONLY);
-        if (file_descriptor == -1) {
-            //The file could not be opened
-            reply->set_status(-1);
-            return Status::OK;
-        }
+        //std::cout << "wiscServer: Inside GetAttr\n";
+        std::string filename = request->filename();
+        FileInfo* fileInfo = new FileInfo();// =  reply->mutable_data();
+        //int file_descriptor = open((filename).c_str(), O_RDONLY);
+        //if (file_descriptor == -1) {
+        //    //The file could not be opened
+        //    reply->set_status(-1);
+        //    return Status::OK;
+        //}
 
         struct stat file_info;
-        if (fstat(file_descriptor, &file_info) == -1) {
+        if (lstat(filename.c_str(), &file_info) == -1) {
             //The file information could not be retrieved.
+            //std::cout << "wiscServer: lstat failed for " << filename << " returning -1\n";
             reply->set_status(-1);
+            reply->set_error(errno);
             return Status::OK;
+        } else {
+            setFileInfo(fileInfo, file_info);
+            //close(file_descriptor);
+            reply->set_allocated_fileinfo(fileInfo);
+            reply->set_status(1);
         }
-        rpcAttr->set_filesize(file_info.st_size);
-        rpcAttr->set_atime(file_info.st_atime);
-        rpcAttr->set_mtime(file_info.st_mtime);
-        close(file_descriptor);
-        reply->set_status(1);
+        reply->set_error(errno);
+        //std::cout << "wiscServer: Exiting GetAttr\n";
         return Status::OK;
     }
+
+    Status GetXAttr(ServerContext* context, const RPCRequest* request,
+             RPCResponse* reply) override {
+         //std::cout << "wiscServer: Inside GetXAttr\n";
+         std::string filename = request->filename();
+         std::string xattr_name = request->xattr_name();
+         std::string xattr_value = request->xattr_value();
+         size_t xattr_size = request->xattr_size();
+         char* value = new char[1024];
+         int size = getxattr(filename.c_str(), xattr_name.c_str(), value, xattr_size);
+         std::string s_value = value;
+         reply->set_xattr_value(s_value);
+         reply->set_xattr_size(size);
+         if (size < 0) {
+           //std::cout << "wiscServer: Exiting GetXAttr\n";
+           reply->set_status(-1);
+           reply->set_error(errno);
+           return Status::OK;
+         }
+         reply->set_status(1);
+         reply->set_error(errno);
+         //std::cout << "wiscServer: Exiting GetXAttr\n";
+         return Status::OK;
+     }
+
+
+    Status StatFS(ServerContext* context, const RPCRequest* request, RPCResponse* reply) override {
+        //std::cout << "wiscServer: Inside StatFS\n";
+        std::string filename = request->filename();
+        Statfs* statfs_obj = new Statfs();// =  reply->mutable_data();
+
+        struct statvfs file_info;
+        if (statvfs(filename.c_str(), &file_info) == -1) {
+            //The file information could not be retrieved.
+            reply->set_status(-1);
+        } else {
+            setStatFS(statfs_obj, file_info);
+            reply->set_allocated_statfs(statfs_obj);
+            reply->set_status(1);
+        }
+        //std::cout << "wiscServer: Exiting StatFS\n";
+        return Status::OK;
+    }
+
+Status Chmod(ServerContext* context, const RPCRequest* request,  RPCResponse* reply) override {
+    //std::cout << "wiscServer: Inside Chmodön";
+    std::string filename = request->filename();
+    int mode = request->mode();
+    
+    int ret = chmod(filename.c_str(), mode);
+
+    if (ret < 0) {
+        //std::cout<<"chmod failed with errorön";
+        //perror("chmod");
+        reply->set_status(-1);
+        reply->set_error(errno);
+    } else {
+        reply->set_status(1);
+    }
+    //std::cout << "wiscServer: Exiting Chmod\n";
+    return Status::OK;
+}
 
 };
 
@@ -272,7 +702,7 @@ void RunServer() {
     builder.RegisterService(&service);
     // Finally assemble the server.
     std::unique_ptr<Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << server_address << std::endl;
+    //std::cout << "Server listening on " << server_address << std::endl;
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
